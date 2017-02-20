@@ -1,0 +1,6 @@
+c:\vs\shannon_exp\shannon_exp\shannon_exp\bin\Debug\shannon_exp.exe.config
+c:\vs\shannon_exp\shannon_exp\shannon_exp\bin\Debug\shannon_exp.exe
+c:\vs\shannon_exp\shannon_exp\shannon_exp\bin\Debug\shannon_exp.pdb
+c:\vs\shannon_exp\shannon_exp\shannon_exp\obj\Debug\shannon_exp.csprojResolveAssemblyReference.cache
+c:\vs\shannon_exp\shannon_exp\shannon_exp\obj\Debug\shannon_exp.exe
+c:\vs\shannon_exp\shannon_exp\shannon_exp\obj\Debug\shannon_exp.pdb
