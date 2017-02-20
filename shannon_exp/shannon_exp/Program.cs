@@ -7,6 +7,12 @@ using System.Threading.Tasks;
 /*
  * Assumptions
  * 
+ * support input with no and
+ * or no or
+ * inputs:
+ * a + b
+ * a
+ * 
  * Shannon's expansion can be applied to a function to determine a common control term such that the function can be represented by a multiplexer,
  * with the control term as the select and the remaining minterms as the inputs.
  * 
@@ -44,15 +50,22 @@ namespace shannon_exp
             }
         }
 
+
+        // input types
+        // or > 5 variables
+        // single variable
+        //
+
         static void Main(string[] args)
         {
-//            string input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
-
             string input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
+            
 
-           // input = "a & c | a & b | b & c";
+            input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
 
-           
+            input = "a & b | ~b & c & d | a & c & d";
+
+
 
             List<string> binterms = new List<string>();
             HashSet<char> lit_hash = new HashSet<char>();
@@ -69,6 +82,12 @@ namespace shannon_exp
             List<char> lits = new List<char>();
             foreach (char ch in lit_hash)
                 lits.Add(ch);
+
+
+            System.Console.Write("Variables: ");
+            foreach (char ch in lits)
+                System.Console.Write("{0}", ch);
+            System.Console.WriteLine();
              
             /* Split string by OR operators into minterms */
             List<string> minterms = input.Split('|').ToList();
@@ -114,11 +133,11 @@ namespace shannon_exp
             }
 
             /* Print all binary minterms */
-            foreach (string x in binterms)
-            {
-                System.Console.WriteLine("{0}", x);
-            }
-
+            System.Console.Write("Binary minterms: ");
+            foreach (var term in binterms)
+                System.Console.Write("{0} ", term);
+            System.Console.WriteLine();
+ 
 
             /* End of input string processing into binterms */
 
@@ -158,14 +177,15 @@ namespace shannon_exp
                 }
             }
 
-            /* Print frequency of terms in minterms */
+
+//             Print frequency of terms in minterms 
             for (int i = 0; i < max_states; i++)
             {
                 System.Console.WriteLine("term {0}", i);
                 foreach (int freq in term_frequency[i])
                     System.Console.WriteLine("{0}", freq);
             }
-         
+       
             /* Search for a term that occurs an equal of time in both true and false instances,
              * which will be the common control term.
              */
@@ -224,7 +244,11 @@ namespace shannon_exp
                 if(binterm[control] == 'x')
                 {
                     /* Shouldn't happen */
-                    throw new NotImplementedException("Factoring error: Control term not used by a minterm.");
+
+                    // this does happen with ab+b'cd+acd
+                    // this means each minterm can either use the minterm (true or complemented) or have it as a not-care
+                    // verify allowing a don't-care for the control doesn't mess up later parts (minimization?)
+                    // throw new NotImplementedException("Factoring error: Control term not used by a minterm.");
                 }
             }
 
@@ -313,6 +337,16 @@ namespace shannon_exp
                     System.Console.WriteLine("{0}", string.Join("", x.data));
             }
 
+            System.Console.WriteLine("--------------------------------");
+            System.Console.WriteLine("Minimized minterms:");
+            foreach (var minterm_list in new_minterm)
+            {
+                foreach (minterm m in minterm_list)
+                {
+                    System.Console.WriteLine("Minterm = [{0}]", String.Join("", m.data));
+                }
+            }
+
 
             System.Console.WriteLine("Control term: {0}", lits[control]);
             System.Console.Write("Expression: ");
@@ -320,10 +354,13 @@ namespace shannon_exp
             {
                 if (minterm_list == new_minterm[0])
                     System.Console.Write("~");
+
                 System.Console.Write("{0}(", lits[control]);
+
                 foreach (minterm m in minterm_list)
                 {
                     string result = "";
+                    bool wrote = false;
 
                     for(int i = 0; i < lit_hash.Count; i++)
                     {
@@ -332,13 +369,22 @@ namespace shannon_exp
                             if (m.data[i] == '0')
                                 result += '~';
                             result += lits[i];
+                            wrote = true;
                         }
                     }
 
-
-                    System.Console.Write("{0}", result);
+                    if (wrote)
+                    {
+                        wrote = false;
+                        System.Console.Write("{0}", result);
+                        if(m != minterm_list.Last())
+                            System.Console.Write(" | ");
+                    }
                 }
                 System.Console.Write(")");
+
+                if (minterm_list != new_minterm.Last())
+                    System.Console.Write(" + ");
             }
 
 
@@ -347,6 +393,7 @@ namespace shannon_exp
         }
     }
 }
+
 
 /* End */
 

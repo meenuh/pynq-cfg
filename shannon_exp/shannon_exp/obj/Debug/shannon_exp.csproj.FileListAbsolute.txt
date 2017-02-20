@@ -4,3 +4,9 @@ c:\vs\shannon_exp\shannon_exp\shannon_exp\bin\Debug\shannon_exp.pdb
 c:\vs\shannon_exp\shannon_exp\shannon_exp\obj\Debug\shannon_exp.csprojResolveAssemblyReference.cache
 c:\vs\shannon_exp\shannon_exp\shannon_exp\obj\Debug\shannon_exp.exe
 c:\vs\shannon_exp\shannon_exp\shannon_exp\obj\Debug\shannon_exp.pdb
+E:\git\shannon_exp\pynq-cfg\shannon_exp\shannon_exp\bin\Debug\shannon_exp.exe.config
+E:\git\shannon_exp\pynq-cfg\shannon_exp\shannon_exp\obj\Debug\shannon_exp.exe
+E:\git\shannon_exp\pynq-cfg\shannon_exp\shannon_exp\obj\Debug\shannon_exp.pdb
+E:\git\shannon_exp\pynq-cfg\shannon_exp\shannon_exp\obj\Debug\shannon_exp.csprojResolveAssemblyReference.cache
+E:\git\shannon_exp\pynq-cfg\shannon_exp\shannon_exp\bin\Debug\shannon_exp.exe
+E:\git\shannon_exp\pynq-cfg\shannon_exp\shannon_exp\bin\Debug\shannon_exp.pdb
