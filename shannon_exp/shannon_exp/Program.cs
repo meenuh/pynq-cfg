@@ -12,6 +12,9 @@ using System.Threading.Tasks;
  * inputs:
  * a + b
  * a
+ * needs to handle pos input (currently sop only)
+ * sop: f(a,b,c,d) = ab+b'cd + acd
+ * pos: f(a,b,c,d) = (a+b+c)(a'+d)(b+c+d)
  * 
  * Shannon's expansion can be applied to a function to determine a common control term such that the function can be represented by a multiplexer,
  * with the control term as the select and the remaining minterms as the inputs.
@@ -61,10 +64,14 @@ namespace shannon_exp
             string input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
             
 
-            input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
+//            input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
 
-            input = "a & b | ~b & c & d | a & c & d";
+  //          input = "a & b | ~b & c & d | a & c & d";
 
+//            input = "a | b | c & ~a | d & b | c | d";
+
+
+    //        input = "~a & b | ~a & c | a & d";
 
 
             List<string> binterms = new List<string>();
@@ -198,11 +205,32 @@ namespace shannon_exp
                     break;
                 }
             }
+
+            if (control == -1)
+            {
+                // for input = "~a & b | ~a & c | a & d";
+                // 2000
+                // 1111
+                // hw1_sol.pdf says A is the term to pull out
+                // so equal or more coverage?
+                // how to pick to not conflict
+                // a has at least 1:1 coverage plus more
+
+                // for input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
+                // 321
+                // 123
+                // b has 2:2 coverage so we pick it
+                // total coverage is 4,4,4, so we pick b which has equal coverage
+                control = 0;
+
+            }
+
             if (control != -1)
                 System.Console.WriteLine("Term {0} ({1}) is candidate for control", control, lits[control]);
             else
             {
                 System.Console.WriteLine("No control term found, cannot reduce.");
+                System.Console.ReadKey();
                 return;
             }
 
