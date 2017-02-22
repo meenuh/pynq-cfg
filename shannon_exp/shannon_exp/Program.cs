@@ -5,6 +5,16 @@ using System.Text;
 using System.Threading.Tasks;
 
 /*
+ * Some observations:
+ * - Minimizing reduces the number of minterms associated with a function. since a CFGLUT5 has 
+ *   enough storage for all possible minterms, minimization isn't necessary.
+ *   (However it does make the results of the program more human-readable)
+ * 
+ * 
+ * Minimizing input that only uses OR:
+ * 
+ * 
+ * 
  * Assumptions
  * 
  * support input with no and
@@ -61,18 +71,12 @@ namespace shannon_exp
 
         static void Main(string[] args)
         {
-            string input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
+            string input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c | d";
             
-
 //            input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
-
   //          input = "a & b | ~b & c & d | a & c & d";
-
 //            input = "a | b | c & ~a | d & b | c | d";
-
-
     //        input = "~a & b | ~a & c | a & d";
-
 
             List<string> binterms = new List<string>();
             HashSet<char> lit_hash = new HashSet<char>();
@@ -89,7 +93,6 @@ namespace shannon_exp
             List<char> lits = new List<char>();
             foreach (char ch in lit_hash)
                 lits.Add(ch);
-
 
             System.Console.Write("Variables: ");
             foreach (char ch in lits)
@@ -375,7 +378,6 @@ namespace shannon_exp
                 }
             }
 
-
             System.Console.WriteLine("Control term: {0}", lits[control]);
             System.Console.Write("Expression: ");
             foreach (var minterm_list in new_minterm)
@@ -424,7 +426,3 @@ namespace shannon_exp
 
 
 /* End */
-
-
-
-
