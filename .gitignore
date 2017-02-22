@@ -1,0 +1,6 @@
+# Let's ignore these files
+
+# Visual Studio output
+/shannon_exp/*.suo
+/shannon_exp/shannon_exp/bin/*
+/shannon_exp/shannon_exp/obj/*
