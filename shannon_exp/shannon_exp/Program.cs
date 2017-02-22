@@ -78,6 +78,8 @@ namespace shannon_exp
 //            input = "a | b | c & ~a | d & b | c | d";
     //        input = "~a & b | ~a & c | a & d";
 
+            input = "";
+
             List<string> binterms = new List<string>();
             HashSet<char> lit_hash = new HashSet<char>();
 
