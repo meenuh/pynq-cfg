@@ -1,0 +1,7 @@
+E:\git\shannon_exp\pynq-cfg\shannon_exp\ShannonTests\obj\Debug\ShannonTests.csprojResolveAssemblyReference.cache
+E:\git\shannon_exp\pynq-cfg\shannon_exp\ShannonTests\bin\Debug\ShannonTests.dll
+E:\git\shannon_exp\pynq-cfg\shannon_exp\ShannonTests\bin\Debug\ShannonTests.pdb
+E:\git\shannon_exp\pynq-cfg\shannon_exp\ShannonTests\bin\Debug\shannon_exp.exe
+E:\git\shannon_exp\pynq-cfg\shannon_exp\ShannonTests\bin\Debug\shannon_exp.pdb
+E:\git\shannon_exp\pynq-cfg\shannon_exp\ShannonTests\obj\Debug\ShannonTests.dll
+E:\git\shannon_exp\pynq-cfg\shannon_exp\ShannonTests\obj\Debug\ShannonTests.pdb

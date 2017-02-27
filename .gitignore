@@ -4,3 +4,5 @@
 /shannon_exp/*.suo
 /shannon_exp/shannon_exp/bin/*
 /shannon_exp/shannon_exp/obj/*
+/shannon_exp/shannon_exp/obj/Debug/*
+

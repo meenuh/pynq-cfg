@@ -1,0 +1,1 @@
+E:\git\shannon_exp\pynq-cfg\shannon_exp\Shannon Unit Tests\obj\Debug\Shannon Unit Tests.csprojResolveAssemblyReference.cache
