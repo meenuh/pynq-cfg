@@ -4,6 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+
+
+
 namespace shannon_exp
 {
     /* A token can be an operator or a variable */
@@ -13,28 +16,12 @@ namespace shannon_exp
         Variable
     };
 
-    /* An operator can be any of the following operations */
-    public enum OperatorType
-    {
-        LogicAnd,
-        LogicOr,
-        LogicNot,
-        LogicXor,
-    };
-
     /* A single variable or operator in an expression */
     public class Token
     {
         public string word;
         public TokenType type;
-        public OperatorType op;
-
-        public Token(TokenType type)
-        {
-            this.word = "";
-            this.type = type;
-        }
-
+        
         public Token(string word, TokenType type)
         {
             this.word = word;
@@ -89,6 +76,8 @@ namespace shannon_exp
             /* Return list of characters as a string */
             return String.Join("", output.ToArray());
         }
+
+
 
         /* Parse a string into tokens */
         public void parseString(string input)
@@ -149,6 +138,9 @@ namespace shannon_exp
         }
     }
 
+
+
+
     public class SubExpression
     {
         /* Sequence of tokens that define the expression */
@@ -168,6 +160,7 @@ namespace shannon_exp
                 temp += token.word;
             return temp;
         }
+
 
         /* Build subexpression based on token list */
         public SubExpression(List<Token> tokens)
@@ -189,24 +182,39 @@ namespace shannon_exp
 
 
     /* Helper class to represent a minterm */
-    public class minterm
+    public class Minterm
     {
         public List<char> data;
         public bool used;
 
-        public minterm(minterm rhs)
+        public Minterm(Minterm rhs)
         {
             data = rhs.data;
             used = rhs.used;
         }
-        public minterm(string value)
+
+        public Minterm(string value)
         {
             data = value.ToList();
             used = false;
         }
+
+        /* Test two minterms for equality */
         public override bool Equals(object obj)
         {
-            return (string.Join("", data) == string.Join("", (obj as minterm).data));
+            return (data.ToString() == (obj as Minterm).data.ToString());
+        }
+
+        /* C# specific helper, not used by this code */
+        public override int GetHashCode()
+        {
+            return data.GetHashCode();
+        }
+
+        /* Return character array as string */
+        public override string ToString()
+        {
+            return String.Join("", data);
         }
     }
 
@@ -230,22 +238,22 @@ namespace shannon_exp
         }
 
         /* Make binary minterms */
-        public List<string> makeBinterms(Expression expr)
+        public List<Minterm> makeMintermsFromExpression(Expression expr)
         {
-            List<string> binterms = new List<string>();
-            List<char> binterm = null;
+            var minterms = new List<Minterm>();
+            Minterm minterm = null;
             bool invert = false;
 
             foreach (var token in expr.rhs.tokens)
             {
-                /* Make a character list with as many x's as there are unique variables in the RHS of the expression (e.g. "f=abc+ac" produces "xxx") */
-                if (binterm == null)
-                    binterm = new List<char>(new String('x', expr.rhs.lit_hash.Count()).ToArray());
+                /* Make a minterm with as many x's as there are unique variables in the RHS of the expression (e.g. "f=abc+ac" produces "xxx") */
+                if (minterm == null)
+                   minterm = new Minterm(new String('x', expr.rhs.lit_hash.Count()));
 
                 switch (token.type)
                 {
                     case TokenType.Variable:
-                        binterm[expr.rhs.lits.IndexOf(token.word)] = (invert) ? '0' : '1';
+                        minterm.data[expr.rhs.lits.IndexOf(token.word)] = (invert) ? '0' : '1';
                         invert = false;
                         break;
 
@@ -253,9 +261,9 @@ namespace shannon_exp
                         switch (token.word)
                         {
                             case "|": /* Split sub-expression by OR operator into minterms */
-                                binterms.Add(String.Join("", binterm.ToArray()));
+                                minterms.Add(minterm);
                                 invert = false;
-                                binterm = null;
+                                minterm = null;
                                 break;
 
                             case "~":
@@ -269,144 +277,142 @@ namespace shannon_exp
                         break;
                 }
             }
-            if (binterm != null)
-                binterms.Add(String.Join("", binterm.ToArray()));
+            if (minterm != null)
+                minterms.Add(minterm);
 
-            return binterms;
+            return minterms;
         }
+
+
+
+        public List<List<int>> findVariableFrequency(List<Minterm> minterms, int max_variables)
+        {
+            const int max_states = 2;
+
+            List<List<int>> term_frequency = new List<List<int>>();
+
+            /* Frequency list has two sub-lists for true and false case */
+            for (int i = 0; i < max_states; i++)
+                term_frequency.Add(new List<int>());
+
+
+            /* Make empty frequency list */
+            for (int i = 0; i < max_states; i++)
+            {
+                term_frequency[i] = new List<int>();
+                for (int j = 0; j < max_variables; j++)
+                    term_frequency[i].Add(0);
+            }
+
+            /* Calculate term frequency */
+            foreach (Minterm minterm in minterms)
+            {
+                for (int i = 0; i < max_variables; i++)
+                {
+                    if (minterm.data[i] == '0') term_frequency[0][i]++;
+                    else if (minterm.data[i] == '1') term_frequency[1][i]++;
+                }
+            }
+
+            return term_frequency;
+        }
+
+        public int findControlVariable(List<List<int>> term_frequency, ref int control_frequency)
+        {
+            /* Find control term.
+             * This is accomplished by finding the minimum frequency for each variable,
+             * and then locating the largest overall frequency across all variables.
+             */
+            int control = -1;
+            control_frequency = 0;
+            for (int j = 0; j < term_frequency[0].Count(); j++)
+            {
+                int currentMin = Math.Min(term_frequency[0][j], term_frequency[1][j]);
+                if (currentMin > control_frequency)
+                {
+                    control = j;
+                    control_frequency = currentMin;
+                }
+            }
+            return control;
+        }
+
+
 
         public bool expand(string input, ref string result)
         {
             result = null;
-
             Expression expr = new Expression();
+
+            /* Parse string into expression */
             expr.parseString(input);
-            var binterms = makeBinterms(expr);
+            
+            /* Build minterm list from expression */
+            var minterms = makeMintermsFromExpression(expr);
+            
+            /* Calculate frequency of variables used */
+            List<List<int>> term_frequency = findVariableFrequency(minterms, expr.rhs.lit_hash.Count());
 
-// DEBUG
+            /* Debug: Report information */
+
             /* Print expression */
-            System.Console.WriteLine(expr);
+            Console.WriteLine("Expression: " + expr);
 
             /* Print all variables used */
-            System.Console.Write("LHS Variables: ");
+            Console.Write("LHS Variables: ");
             foreach (var name in expr.lhs.lits)
-                System.Console.Write("{0}", name);
-            System.Console.WriteLine();
+                Console.Write("{0}", name);
+            Console.WriteLine();
 
             /* Print all variables used */
-            System.Console.Write("RHS Variables: ");
+            Console.Write("RHS Variables: ");
             foreach (var name in expr.rhs.lits)
-                System.Console.Write("{0}", name);
-            System.Console.WriteLine();
+                Console.Write("{0}", name);
+            Console.WriteLine();
 
-            /* DEBUG: Print finalized expression */
-            System.Console.Write("LHS Tokens: ");
+            /* Print finalized expression */
+            Console.Write("LHS Tokens: ");
             foreach (var token in expr.lhs.tokens)
-                System.Console.Write("{0}", token.word);
-            System.Console.WriteLine();
+                Console.Write("{0}", token.word);
+            Console.WriteLine();
 
-            /* DEBUG: Print finalized expression */
-            System.Console.Write("RHS Tokens: ");
+            /* Print finalized expression */
+            Console.Write("RHS Tokens: ");
             foreach (var token in expr.rhs.tokens)
-                System.Console.Write("{0}", token.word);
-            System.Console.WriteLine();
+                Console.Write("{0}", token.word);
+            Console.WriteLine();
 
-            System.Console.WriteLine("Binterms:");
-            foreach (var term in binterms)
-                System.Console.WriteLine("{0}", term);
-// END_DEBUG
-            /* End of input string processing into binterms */
+            /* Print minterms */
+            Console.WriteLine("Minterms:");
+            foreach (var term in minterms)
+                Console.Write("{0} ", term);
+            Console.WriteLine();
 
-            //-----------------------------------------------------------------------------------------------------------------
-            //-----------------------------------------------------------------------------------------------------------------
-
-            /* Determine literal frequency to find factorization candidates */
-
-            int max_lits = expr.rhs.lit_hash.Count();
-            const int max_states = 2; /* 0,1 not x */
-            List<int>[] term_frequency = new List<int>[max_states];
-
-            /* Make empty frequency list */
-            for (int i = 0; i < max_states; i++)
-                term_frequency[i] = new List<int>();
-
-            for (int i = 0; i < max_lits; i++)
+            /* Print frequency of terms in minterms */
+            for (int i = 0; i < term_frequency.Count; i++)
             {
-                term_frequency[0].Add(0);
-                term_frequency[1].Add(0);
-            }
-
-            /* Calculate term frequency */
-            foreach (string binterm2 in binterms)
-            {
-                for (int i = 0; i < max_lits; i++)
-                {
-                    switch (binterm2[i])
-                    {
-                    case '0':
-                        term_frequency[0][i]++;
-                        break;
-
-                    case '1':
-                        term_frequency[1][i]++;
-                        break;
-
-                    default:
-                        break;
-                    }
-                }
-            }
-
-
-            // Print frequency of terms in minterms 
-            for (int i = 0; i < max_states; i++)
-            {
-                System.Console.Write("Term frequency {0}: ", i);
+                Console.Write("Term frequency {0}: ", i);
                 foreach (int freq in term_frequency[i])
-                    System.Console.Write("{0} ", freq);
-                System.Console.WriteLine();
+                    Console.Write("{0} ", freq);
+                Console.WriteLine();
             }
 
-            /* Search for a term that occurs an equal of time in both true and false instances,
-             * which will be the common control term.
-             */
-            int control = -1;
-            for (int j = 0; j < max_lits; j++)
-            {
-                if (term_frequency[0][j] == term_frequency[1][j])
-                {
-                    control = j;
-                    break;
-                }
-            }
-
+            /* Search for control term. */
+            int control_frequency = 0;
+            int control = findControlVariable(term_frequency, ref control_frequency);
             if (control == -1)
             {
-                // for input = "~a & b | ~a & c | a & d";
-                // 2000
-                // 1111
-                // hw1_sol.pdf says A is the term to pull out
-                // so equal or more coverage?
-                // how to pick to not conflict
-                // a has at least 1:1 coverage plus more
-
-                // for input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
-                // 321
-                // 123
-                // b has 2:2 coverage so we pick it
-                // total coverage is 4,4,4, so we pick b which has equal coverage
-                control = 0;
-
-            }
-
-            if (control != -1)
-                System.Console.WriteLine("Term {0} ({1}) is candidate for control", control, expr.rhs.lits[control]);
-            else
-            {
-                System.Console.WriteLine("No control term found, cannot reduce.");
-                System.Console.ReadKey();
+                /* No control term found. Expression may not be reducible via Shannon expansion */
+                Console.WriteLine("No control term found, cannot reduce.");
+                Console.ReadKey();
                 return true;
             }
+            Console.WriteLine("Control term candidate is {0} with frequency {1}.", control, control_frequency);
+
+
+
+#if true
+            int max_lits = expr.rhs.lit_hash.Count();
 
             /* End of finding control term */
 
@@ -419,31 +425,31 @@ namespace shannon_exp
             partition[0] = new List<string>();
             partition[1] = new List<string>();
 
-            var minterm_ptn = new List<minterm>[2];
-            minterm_ptn[0] = new List<minterm>();
-            minterm_ptn[1] = new List<minterm>();
+            var minterm_ptn = new List<Minterm>[2];
+            minterm_ptn[0] = new List<Minterm>();
+            minterm_ptn[1] = new List<Minterm>();
 
-            foreach (string binterm in binterms)
+            foreach (Minterm minterm in minterms)
             {
                 /* Make new minterm with control term replaced with don't-care */
-                StringBuilder builder = new StringBuilder(binterm);
+                StringBuilder builder = new StringBuilder(minterm.ToString()); /* Implicitly invoke StringBuilder(String) constructor */
                 builder[control] = 'x';
                 string modified = builder.ToString();
 
                 /* Based on control signal, add minterm to either side of paritition */
-                if (binterm[control] == '0')
+                if (minterm.data[control] == '0')
                 {
                     partition[0].Add(modified);
-                    minterm_ptn[0].Add(new minterm(modified));
+                    minterm_ptn[0].Add(new Minterm(modified));
                 }
                 else
-                    if (binterm[control] == '1')
+                    if (minterm.data[control] == '1')
                     {
                         partition[1].Add(modified);
-                        minterm_ptn[1].Add(new minterm(modified));
+                        minterm_ptn[1].Add(new Minterm(modified));
                     }
                     else
-                        if (binterm[control] == 'x')
+                        if (minterm.data[control] == 'x')
                         {
                             /* Shouldn't happen */
 
@@ -457,22 +463,21 @@ namespace shannon_exp
             /* Display unminimized partitions */
             for (int i = 0; i < 2; i++)
             {
-                System.Console.WriteLine("Partition {0}", i);
+                Console.WriteLine("Partition {0}", i);
                 foreach (var x in partition[i])
-                    System.Console.WriteLine("{0}", x);
+                    Console.WriteLine("{0}", x);
             }
 
-            var new_minterm = new List<minterm>[2];
-
-            new_minterm[0] = new List<minterm>();
-            new_minterm[1] = new List<minterm>();
+            var new_minterm = new List<Minterm>[2];
+            new_minterm[0] = new List<Minterm>();
+            new_minterm[1] = new List<Minterm>();
 
             /* Minimize partitions */
             for (int i = 0; i < 2; i++)
             {
-                foreach (minterm parent in minterm_ptn[i])
+                foreach (Minterm parent in minterm_ptn[i])
                 {
-                    foreach (minterm child in minterm_ptn[i])
+                    foreach (Minterm child in minterm_ptn[i])
                     {
                         int diff = 0;
                         int diff_pos = 0;
@@ -494,7 +499,7 @@ namespace shannon_exp
                         /* If they differ by one bit, minimize */
                         if (diff == 1)
                         {
-                            minterm derived = new minterm(parent);
+                            Minterm derived = new Minterm(parent);
 
                             /* Build minimized minterm */
                             derived.data[diff_pos] = 'x';
@@ -505,26 +510,22 @@ namespace shannon_exp
                                 parent.used = true;
                                 child.used = true;
 
-                                System.Console.WriteLine("Added {0}", string.Join("", derived.data));
+                                Console.WriteLine("Added {0}", derived);
 
                                 new_minterm[i].Add(derived);
 
-                                System.Console.WriteLine("Reduced P:{0} C:{1} D:{2} -> {3}",
-                                        string.Join("", parent.data),
-                                        string.Join("", child.data),
-                                        diff,
-                                        string.Join("", derived.data));
+                                Console.WriteLine("Reduced P:{0} C:{1} D:{2} -> {3}", parent, child, diff, derived);
                             }
                         }
                         else
                         {
-                            System.Console.WriteLine("P:{0} C:{1} D:{2}", parent, child, diff);
+                            Console.WriteLine("P:{0} C:{1} D:{2}", parent, child, diff);
                         }
                     } // end foreach child
                 } // end foreach parent
 
                 /* Add minterms we couldn't minimize */
-                foreach (minterm remaining in minterm_ptn[i])
+                foreach (Minterm remaining in minterm_ptn[i])
                 {
                     if (remaining.used == false && !new_minterm[i].Contains(remaining))
                         new_minterm[i].Add(remaining);
@@ -534,31 +535,31 @@ namespace shannon_exp
             /* Display unminimized partitions */
             for (int i = 0; i < 2; i++)
             {
-                System.Console.WriteLine("Partition {0}", i);
+                Console.WriteLine("Partition {0}", i);
                 foreach (var x in new_minterm[i])
-                    System.Console.WriteLine("{0}", string.Join("", x.data));
+                    Console.WriteLine("{0}", x);
             }
 
-            System.Console.WriteLine("--------------------------------");
-            System.Console.WriteLine("Minimized minterms:");
+            Console.WriteLine("--------------------------------");
+            Console.WriteLine("Minimized minterms:");
             foreach (var minterm_list in new_minterm)
             {
-                foreach (minterm m in minterm_list)
+                foreach (Minterm m in minterm_list)
                 {
-                    System.Console.WriteLine("Minterm = [{0}]", String.Join("", m.data));
+                    Console.WriteLine("Minterm = [{0}]", m);
                 }
             }
 
-            System.Console.WriteLine("Control term: {0}", expr.rhs.lits[control]);
-            System.Console.Write("Expression: ");
+            Console.WriteLine("Control term: {0}", expr.rhs.lits[control]);
+            Console.Write("Expression: ");
             foreach (var minterm_list in new_minterm)
             {
                 if (minterm_list == new_minterm[0])
-                    System.Console.Write("~");
+                    Console.Write("~");
 
-                System.Console.Write("{0}(", expr.rhs.lits[control]);
+                Console.Write("{0}(", expr.rhs.lits[control]);
 
-                foreach (minterm m in minterm_list)
+                foreach (Minterm m in minterm_list)
                 {
                     string result2 = "";
                     bool wrote = false;
@@ -577,17 +578,17 @@ namespace shannon_exp
                     if (wrote)
                     {
                         wrote = false;
-                        System.Console.Write("{0}", result2);
+                        Console.Write("{0}", result2);
                         if (m != minterm_list.Last())
-                            System.Console.Write(" | ");
+                            Console.Write(" | ");
                     }
                 }
-                System.Console.Write(")");
+                Console.Write(")");
 
                 if (minterm_list != new_minterm.Last())
-                    System.Console.Write(" + ");
+                    Console.Write(" + ");
             }
-//#endif
+#endif
             return false;
         }
         public string expand()
