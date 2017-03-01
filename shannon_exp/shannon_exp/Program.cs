@@ -73,8 +73,8 @@ namespace shannon_exp
 
           //  input = "x'y'z'+x'y'z+x'yz+xy'z'+xy'z";
 
-            input = "d4 = ~d0 & ~d1 & ~d2 | d0 & ~d1 & ~d2 | d0 & d1 & ~d2 | d0 & d1 & d2 | d3";
-         input = "f=~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
+        //    input = "d4 = ~d0 & ~d1 & ~d2 | d0 & ~d1 & ~d2 | d0 & d1 & ~d2 | d0 & d1 & d2 | d3";
+        input = "f=~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c | d";
 
      //       input = "f = ~a & b | ~a & c | a & d";
 

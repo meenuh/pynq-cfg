@@ -5,8 +5,6 @@ using System.Text;
 using System.Threading.Tasks;
 
 
-
-
 namespace shannon_exp
 {
     /* A token can be an operator or a variable */
@@ -15,6 +13,7 @@ namespace shannon_exp
         Operator,
         Variable
     };
+
 
     /* A single variable or operator in an expression */
     public class Token
@@ -28,6 +27,7 @@ namespace shannon_exp
             this.type = type;
         }
     };
+
 
     public class Expression
     {
@@ -189,15 +189,23 @@ namespace shannon_exp
 
         public Minterm(Minterm rhs)
         {
-            data = rhs.data;
+            data = new List<char>(rhs.data);
             used = rhs.used;
+        }
+
+        public Minterm(Minterm rhs, int position, char replacement)
+        {
+            data = new List<char>(rhs.data);
+            data[position] = replacement;
+            used = false;
         }
 
         public Minterm(string value)
         {
-            data = value.ToList();
+            data = new List<char>(value.ToList());
             used = false;
         }
+
 
         /* Test two minterms for equality */
         public override bool Equals(object obj)
@@ -205,11 +213,13 @@ namespace shannon_exp
             return (data.ToString() == (obj as Minterm).data.ToString());
         }
 
+    
         /* C# specific helper, not used by this code */
         public override int GetHashCode()
         {
             return data.GetHashCode();
         }
+
 
         /* Return character array as string */
         public override string ToString()
@@ -317,6 +327,7 @@ namespace shannon_exp
             return term_frequency;
         }
 
+
         public int findControlVariable(List<List<int>> term_frequency, ref int control_frequency)
         {
             /* Find control term.
@@ -339,19 +350,54 @@ namespace shannon_exp
 
 
 
+
+
+
+
+        public List<List<Minterm>> partitionMinterms(List<Minterm> minterms, Expression expr, int control)
+        {
+            var partitions = new List<List<Minterm>>();
+
+            /* Build list of three minterms for each of 0, 1, x */
+            partitions.Add(new List<Minterm>());
+            partitions.Add(new List<Minterm>());
+            partitions.Add(new List<Minterm>());
+
+            foreach (Minterm minterm in minterms)
+            {
+                /* Make new minterm with control term replaced by don't-care */
+                Minterm modified = new Minterm(minterm, control, 'x');
+
+                /* Add new minterm to appropriate partition */
+                if (minterm.data[control] == '0') partitions[0].Add(modified);
+                else
+                if (minterm.data[control] == '1') partitions[1].Add(modified);
+                else
+                if (minterm.data[control] == 'x') partitions[2].Add(modified);
+            }
+
+            return partitions;
+        }
+
         public bool expand(string input, ref string result)
         {
             result = null;
             Expression expr = new Expression();
 
+            //============================================================================
             /* Parse string into expression */
+            //============================================================================
             expr.parseString(input);
-            
+
+            //============================================================================
             /* Build minterm list from expression */
+            //============================================================================
             var minterms = makeMintermsFromExpression(expr);
             
+            //============================================================================
             /* Calculate frequency of variables used */
-            List<List<int>> term_frequency = findVariableFrequency(minterms, expr.rhs.lit_hash.Count());
+            //============================================================================
+            var term_frequency = findVariableFrequency(minterms, expr.rhs.lit_hash.Count());
 
             /* Debug: Report information */
 
@@ -383,7 +429,7 @@ namespace shannon_exp
             Console.WriteLine();
 
             /* Print minterms */
-            Console.WriteLine("Minterms:");
+            Console.Write("Minterms: ");
             foreach (var term in minterms)
                 Console.Write("{0} ", term);
             Console.WriteLine();
@@ -397,7 +443,9 @@ namespace shannon_exp
                 Console.WriteLine();
             }
 
-            /* Search for control term. */
+            //============================================================================
+            /* Locate control term */
+            //============================================================================
             int control_frequency = 0;
             int control = findControlVariable(term_frequency, ref control_frequency);
             if (control == -1)
@@ -408,76 +456,45 @@ namespace shannon_exp
                 return true;
             }
             Console.WriteLine("Control term candidate is {0} with frequency {1}.", control, control_frequency);
+            Console.WriteLine();
 
-
+            //============================================================================
+            /* Partition minterms */
+            //============================================================================
+            Console.WriteLine("* Partitioning pass:");
+            var partitions = partitionMinterms(minterms, expr, control);
+               
+            /* Display unminimized partitions */
+            Console.WriteLine("Partitions:");
+            for (int i = 0; i < 3; i++)
+            {
+                Console.Write("{0}: ", i);
+                foreach (var x in partitions[i])
+                    Console.Write("{0} ", x);
+                Console.WriteLine();
+            }
+            Console.WriteLine();
 
 #if true
+            //============================================================================
+            //============================================================================
+            //============================================================================
+            //============================================================================
+
+            Console.WriteLine("* Minimization pass:");
+
             int max_lits = expr.rhs.lit_hash.Count();
 
-            /* End of finding control term */
-
-            //-----------------------------------------------------------------------------------------------------------------
-            //-----------------------------------------------------------------------------------------------------------------
-
-            /* Start of factoring out control term */
-
-            List<string>[] partition = new List<string>[2];
-            partition[0] = new List<string>();
-            partition[1] = new List<string>();
-
-            var minterm_ptn = new List<Minterm>[2];
-            minterm_ptn[0] = new List<Minterm>();
-            minterm_ptn[1] = new List<Minterm>();
-
-            foreach (Minterm minterm in minterms)
-            {
-                /* Make new minterm with control term replaced with don't-care */
-                StringBuilder builder = new StringBuilder(minterm.ToString()); /* Implicitly invoke StringBuilder(String) constructor */
-                builder[control] = 'x';
-                string modified = builder.ToString();
-
-                /* Based on control signal, add minterm to either side of paritition */
-                if (minterm.data[control] == '0')
-                {
-                    partition[0].Add(modified);
-                    minterm_ptn[0].Add(new Minterm(modified));
-                }
-                else
-                    if (minterm.data[control] == '1')
-                    {
-                        partition[1].Add(modified);
-                        minterm_ptn[1].Add(new Minterm(modified));
-                    }
-                    else
-                        if (minterm.data[control] == 'x')
-                        {
-                            /* Shouldn't happen */
-
-                            // this does happen with ab+b'cd+acd
-                            // this means each minterm can either use the minterm (true or complemented) or have it as a not-care
-                            // verify allowing a don't-care for the control doesn't mess up later parts (minimization?)
-                            // throw new NotImplementedException("Factoring error: Control term not used by a minterm.");
-                        }
-            }
-
-            /* Display unminimized partitions */
-            for (int i = 0; i < 2; i++)
-            {
-                Console.WriteLine("Partition {0}", i);
-                foreach (var x in partition[i])
-                    Console.WriteLine("{0}", x);
-            }
-
-            var new_minterm = new List<Minterm>[2];
-            new_minterm[0] = new List<Minterm>();
-            new_minterm[1] = new List<Minterm>();
+            var minimized = new List<Minterm>[3];
+            for (int i = 0; i < 3; i++)
+                minimized[i] = new List<Minterm>();
 
             /* Minimize partitions */
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < 3; i++)
             {
-                foreach (Minterm parent in minterm_ptn[i])
+                foreach (Minterm parent in partitions[i])
                 {
-                    foreach (Minterm child in minterm_ptn[i])
+                    foreach (Minterm child in partitions[i])
                     {
                         int diff = 0;
                         int diff_pos = 0;
@@ -505,16 +522,14 @@ namespace shannon_exp
                             derived.data[diff_pos] = 'x';
                             derived.used = false;
 
-                            if (!new_minterm[i].Contains(derived))
+                            if (!minimized[i].Contains(derived))
                             {
                                 parent.used = true;
                                 child.used = true;
 
-                                Console.WriteLine("Added {0}", derived);
+                                minimized[i].Add(derived);
 
-                                new_minterm[i].Add(derived);
-
-                                Console.WriteLine("Reduced P:{0} C:{1} D:{2} -> {3}", parent, child, diff, derived);
+                                Console.WriteLine("- Reduced ({0}, {1}) -> {3} (@{2})", parent, child, diff, derived);
                             }
                         }
                         else
@@ -524,25 +539,28 @@ namespace shannon_exp
                     } // end foreach child
                 } // end foreach parent
 
-                /* Add minterms we couldn't minimize */
-                foreach (Minterm remaining in minterm_ptn[i])
+                /* Add any minterms we couldn't minimize */
+                foreach (Minterm remaining in partitions[i])
                 {
-                    if (remaining.used == false && !new_minterm[i].Contains(remaining))
-                        new_minterm[i].Add(remaining);
+                    if (remaining.used == false && !minimized[i].Contains(remaining))
+                        minimized[i].Add(remaining);
                 }
             }
 
             /* Display unminimized partitions */
-            for (int i = 0; i < 2; i++)
+            Console.WriteLine("Minimized partitions:");
+            for (int i = 0; i < 3; i++)
             {
-                Console.WriteLine("Partition {0}", i);
-                foreach (var x in new_minterm[i])
-                    Console.WriteLine("{0}", x);
+                Console.Write("{0}: ", i);
+                foreach (var x in minimized[i])
+                    Console.Write("{0} ", x);
+                Console.WriteLine();
             }
+            Console.WriteLine();
 
             Console.WriteLine("--------------------------------");
             Console.WriteLine("Minimized minterms:");
-            foreach (var minterm_list in new_minterm)
+            foreach (var minterm_list in minimized)
             {
                 foreach (Minterm m in minterm_list)
                 {
@@ -552,9 +570,9 @@ namespace shannon_exp
 
             Console.WriteLine("Control term: {0}", expr.rhs.lits[control]);
             Console.Write("Expression: ");
-            foreach (var minterm_list in new_minterm)
+            foreach (var minterm_list in minimized)
             {
-                if (minterm_list == new_minterm[0])
+                if (minterm_list == minimized[0])
                     Console.Write("~");
 
                 Console.Write("{0}(", expr.rhs.lits[control]);
@@ -585,8 +603,8 @@ namespace shannon_exp
                 }
                 Console.Write(")");
 
-                if (minterm_list != new_minterm.Last())
-                    Console.Write(" + ");
+                if (minterm_list != minimized.Last())
+                    Console.Write(" | ");
             }
 #endif
             return false;
@@ -599,4 +617,4 @@ namespace shannon_exp
         }
     }
 
-}
+} // End
