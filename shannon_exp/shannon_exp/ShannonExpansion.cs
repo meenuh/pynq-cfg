@@ -349,7 +349,73 @@ namespace shannon_exp
         }
 
 
+        public List<List<Minterm>> minimizePartitions(List<List<Minterm>> partitions, Expression expr)
+        {
+            int max_lits = expr.rhs.lit_hash.Count();
 
+            var minimized = new List<List<Minterm>>();
+            for (int i = 0; i < 3; i++)
+                minimized.Add(new List<Minterm>());
+
+            /* Minimize partitions */
+            for (int i = 0; i < 3; i++)
+            {
+                foreach (Minterm parent in partitions[i])
+                {
+                    foreach (Minterm child in partitions[i])
+                    {
+                        int diff = 0;
+                        int diff_pos = 0;
+
+                        /* Don't compare the same minterm to itself */
+                        if (parent == child)
+                            continue;
+
+                        /* Count number of differences between parent and child, stop if more than one found */
+                        for (int index = 0; index < max_lits && diff <= 1; index++)
+                        {
+                            /* Note position where different occurred */
+                            if (parent.data[index] != child.data[index])
+                            {
+                                diff++;
+                                diff_pos = index;
+                            }
+                        }
+
+                        /* If they differ by one bit, minimize */
+                        if (diff == 1)
+                        {
+                            /* Build minimized minterm */
+                            Minterm derived = new Minterm(parent, diff_pos, 'x');
+                            derived.used = false;
+
+                            /* If we don't already have this minterm, add it and mark parent and child as being reduced */
+                            if (!minimized[i].Contains(derived))
+                            {
+                                parent.used = true;
+                                child.used = true;
+                                minimized[i].Add(derived);
+                                Console.WriteLine("- Reduced ({0}, {1}) -> {3} (@{2})", parent, child, diff, derived);
+                            }
+                        }
+                        else
+                        {
+                            /* TODO: Find input that can test this code path */
+                            Console.WriteLine("ERROR: Zero or multiple differences for: P:{0} C:{1} D:{2}", parent, child, diff);
+                            throw new NotImplementedException("Multiple differences");
+                        }
+                    } /* foreach child */
+                } /* foreach parent */
+
+                /* Add any minterms we couldn't minimize to the output */
+                foreach (Minterm remaining in partitions[i])
+                {
+                    if (remaining.used == false && !minimized[i].Contains(remaining))
+                        minimized[i].Add(remaining);
+                }
+            }
+            return minimized;
+        }
 
 
 
@@ -378,6 +444,71 @@ namespace shannon_exp
 
             return partitions;
         }
+
+
+
+
+        public string buildMinimizedExpressionStr(List<List<Minterm>> minimized, Expression expr, int control)
+        {
+            string output = "";
+            int max_lits = expr.rhs.lit_hash.Count();
+
+            /* Output parts of expression that were partitioned by the control term */
+            for (int j = 0; j < 2; j++)
+            {
+                var minterm_list = minimized[j];   
+
+                if (minterm_list == minimized[0])
+                    output += "~";
+
+
+                output += String.Format("{0}(", expr.rhs.lits[control]);
+
+                foreach (Minterm m in minterm_list)
+                {
+                    bool wrote = false;
+
+                    for (int i = 0; i < max_lits; i++)
+                    {
+                        if (m.data[i] != 'x')
+                        {
+                            if (m.data[i] == '0')
+                                output += '~';
+                            output += expr.rhs.lits[i];
+                            wrote = true;
+                        }
+                    }
+
+                    if (wrote)
+                    {
+                        wrote = false;
+
+                        if (m != minterm_list.Last())
+                            output += " | ";
+                    }
+                }
+                output +=  ")";
+
+                if (minterm_list != minimized.Last())
+                    output +=  " | ";
+            }
+
+            /* Output remaining parts that are unaffected by the control term */
+            foreach (var minterm in minimized[2])
+            {
+                for(int i = 0; i < max_lits; i++)
+                {
+                    if (minterm.data[i] == '0') output += "~" + expr.rhs.lits[i];
+                    else
+                    if (minterm.data[i] == '1') output += expr.rhs.lits[i];
+                }
+            }
+                
+            return output;
+        }
+
+
+
 
         public bool expand(string input, ref string result)
         {
@@ -459,7 +590,7 @@ namespace shannon_exp
             Console.WriteLine();
 
             //============================================================================
-            /* Partition minterms */
+            /* Partition minterms by control signal */
             //============================================================================
             Console.WriteLine("* Partitioning pass:");
             var partitions = partitionMinterms(minterms, expr, control);
@@ -475,79 +606,14 @@ namespace shannon_exp
             }
             Console.WriteLine();
 
-#if true
             //============================================================================
+            /* Minimize partitions to remove redundant minterms*/
             //============================================================================
-            //============================================================================
-            //============================================================================
-
             Console.WriteLine("* Minimization pass:");
 
-            int max_lits = expr.rhs.lit_hash.Count();
+            var minimized = minimizePartitions(partitions, expr);
 
-            var minimized = new List<Minterm>[3];
-            for (int i = 0; i < 3; i++)
-                minimized[i] = new List<Minterm>();
-
-            /* Minimize partitions */
-            for (int i = 0; i < 3; i++)
-            {
-                foreach (Minterm parent in partitions[i])
-                {
-                    foreach (Minterm child in partitions[i])
-                    {
-                        int diff = 0;
-                        int diff_pos = 0;
-
-                        /* Don't compare the same minterm to itself */
-                        if (parent == child)
-                            continue;
-
-                        /* Count number of differences between parent and child */
-                        for (int index = 0; index < max_lits && diff <= 1; index++)
-                        {
-                            if (parent.data[index] != child.data[index])
-                            {
-                                diff++;
-                                diff_pos = index;
-                            }
-                        }
-
-                        /* If they differ by one bit, minimize */
-                        if (diff == 1)
-                        {
-                            Minterm derived = new Minterm(parent);
-
-                            /* Build minimized minterm */
-                            derived.data[diff_pos] = 'x';
-                            derived.used = false;
-
-                            if (!minimized[i].Contains(derived))
-                            {
-                                parent.used = true;
-                                child.used = true;
-
-                                minimized[i].Add(derived);
-
-                                Console.WriteLine("- Reduced ({0}, {1}) -> {3} (@{2})", parent, child, diff, derived);
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("P:{0} C:{1} D:{2}", parent, child, diff);
-                        }
-                    } // end foreach child
-                } // end foreach parent
-
-                /* Add any minterms we couldn't minimize */
-                foreach (Minterm remaining in partitions[i])
-                {
-                    if (remaining.used == false && !minimized[i].Contains(remaining))
-                        minimized[i].Add(remaining);
-                }
-            }
-
-            /* Display unminimized partitions */
+            /* Display minimized partitions */
             Console.WriteLine("Minimized partitions:");
             for (int i = 0; i < 3; i++)
             {
@@ -558,57 +624,16 @@ namespace shannon_exp
             }
             Console.WriteLine();
 
-            Console.WriteLine("--------------------------------");
-            Console.WriteLine("Minimized minterms:");
-            foreach (var minterm_list in minimized)
-            {
-                foreach (Minterm m in minterm_list)
-                {
-                    Console.WriteLine("Minterm = [{0}]", m);
-                }
-            }
-
+            //----------------------------------------------------------
+            Console.WriteLine("* Minimized expression:");         
             Console.WriteLine("Control term: {0}", expr.rhs.lits[control]);
-            Console.Write("Expression: ");
-            foreach (var minterm_list in minimized)
-            {
-                if (minterm_list == minimized[0])
-                    Console.Write("~");
+            Console.Write("Expression: {0}", buildMinimizedExpressionStr(minimized, expr, control));
 
-                Console.Write("{0}(", expr.rhs.lits[control]);
-
-                foreach (Minterm m in minterm_list)
-                {
-                    string result2 = "";
-                    bool wrote = false;
-
-                    for (int i = 0; i < max_lits; i++)
-                    {
-                        if (m.data[i] != 'x')
-                        {
-                            if (m.data[i] == '0')
-                                result2 += '~';
-                            result2 += expr.rhs.lits[i];
-                            wrote = true;
-                        }
-                    }
-
-                    if (wrote)
-                    {
-                        wrote = false;
-                        Console.Write("{0}", result2);
-                        if (m != minterm_list.Last())
-                            Console.Write(" | ");
-                    }
-                }
-                Console.Write(")");
-
-                if (minterm_list != minimized.Last())
-                    Console.Write(" | ");
-            }
-#endif
             return false;
         }
+
+
+
         public string expand()
         {
             string result = "";
