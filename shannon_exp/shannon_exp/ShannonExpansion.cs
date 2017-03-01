@@ -210,7 +210,9 @@ namespace shannon_exp
         /* Test two minterms for equality */
         public override bool Equals(object obj)
         {
-            return (data.ToString() == (obj as Minterm).data.ToString());
+            string lhs = String.Join("", data);
+            string rhs = String.Join("", (obj as Minterm).data);
+            return lhs == rhs;
         }
 
     
@@ -401,11 +403,21 @@ namespace shannon_exp
                         else
                         {
                             /* TODO: Find input that can test this code path */
-                            Console.WriteLine("ERROR: Zero or multiple differences for: P:{0} C:{1} D:{2}", parent, child, diff);
-                            throw new NotImplementedException("Multiple differences");
+                            // it's this one:
+                            ///         input = "f = ~D & E | D & C & A | D & ~C & B"; // lf: maps to two cascaded 2-1 muxes
+
+                            //Console.WriteLine("ERROR: Zero or multiple differences for: P:{0} C:{1} D:{2}", parent, child, diff);
+                            //throw new NotImplementedException("Multiple differences");
                         }
                     } /* foreach child */
                 } /* foreach parent */
+
+                Console.Write("Could not minimize: ");
+                foreach(Minterm remaining in partitions[i])
+                {
+                    Console.Write("{0} ({1}) ", remaining, remaining.used);
+                }
+                Console.WriteLine();
 
                 /* Add any minterms we couldn't minimize to the output */
                 foreach (Minterm remaining in partitions[i])
@@ -458,21 +470,22 @@ namespace shannon_exp
             {
                 var minterm_list = minimized[j];   
 
+                /* The first partition is associated with the control term being false */
                 if (minterm_list == minimized[0])
                     output += "~";
 
-
+                /* Output control term */
                 output += String.Format("{0}(", expr.rhs.lits[control]);
 
-                foreach (Minterm m in minterm_list)
+                /* Output all minterms associated with the false control term */
+                foreach (Minterm minterm in minterm_list)
                 {
                     bool wrote = false;
-
                     for (int i = 0; i < max_lits; i++)
                     {
-                        if (m.data[i] != 'x')
+                        if (minterm.data[i] != 'x')
                         {
-                            if (m.data[i] == '0')
+                            if (minterm.data[i] == '0')
                                 output += '~';
                             output += expr.rhs.lits[i];
                             wrote = true;
@@ -482,26 +495,31 @@ namespace shannon_exp
                     if (wrote)
                     {
                         wrote = false;
-
-                        if (m != minterm_list.Last())
+                        if (minterm != minterm_list.Last())
                             output += " | ";
                     }
                 }
+
+                /* End of control term */
                 output +=  ")";
 
-                if (minterm_list != minimized.Last())
+                /* Insert OR term between two partitions */
+                if (j == 0)
                     output +=  " | ";
             }
 
             /* Output remaining parts that are unaffected by the control term */
             foreach (var minterm in minimized[2])
             {
+                string temp = "";
                 for(int i = 0; i < max_lits; i++)
                 {
-                    if (minterm.data[i] == '0') output += "~" + expr.rhs.lits[i];
+                    if (minterm.data[i] == '0') temp += "~" + expr.rhs.lits[i];
                     else
-                    if (minterm.data[i] == '1') output += expr.rhs.lits[i];
+                    if (minterm.data[i] == '1') temp += expr.rhs.lits[i];
                 }
+                if (!String.IsNullOrEmpty(temp))
+                    output += " | " + temp;
             }
                 
             return output;
@@ -633,7 +651,7 @@ namespace shannon_exp
         }
 
 
-
+        
         public string expand()
         {
             string result = "";
