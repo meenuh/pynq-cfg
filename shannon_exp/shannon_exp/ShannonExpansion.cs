@@ -150,9 +150,6 @@ namespace shannon_exp
         /* Sequence of tokens that define the expression */
         public List<Token> tokens;
 
-        /* Hash set of all unique variables */
-        public HashSet<String> lit_hash;
-
         /* List of all unique variables */
         public List<String> lits;
 
@@ -173,7 +170,7 @@ namespace shannon_exp
             this.tokens = new List<Token>(tokens);
 
             /* Make hash of unique literals */
-            lit_hash = new HashSet<string>();
+            HashSet<string> lit_hash = new HashSet<string>();
             foreach (var token in tokens)
                 if (token.type == TokenType.Variable)
                     lit_hash.Add(token.word);
@@ -234,6 +231,8 @@ namespace shannon_exp
         }
     }
 
+
+    
     public class ShannonExpansion
     {
         public string input;
@@ -264,7 +263,7 @@ namespace shannon_exp
             {
                 /* Make a minterm with as many x's as there are unique variables in the RHS of the expression (e.g. "f=abc+ac" produces "xxx") */
                 if (minterm == null)
-                   minterm = new Minterm(new String('x', expr.rhs.lit_hash.Count()));
+                   minterm = new Minterm(new String('x', expr.rhs.lits.Count()));
 
                 switch (token.type)
                 {
@@ -357,7 +356,7 @@ namespace shannon_exp
 
         public List<List<Minterm>> minimizePartitions(List<List<Minterm>> partitions, Expression expr)
         {
-            int max_lits = expr.rhs.lit_hash.Count();
+            int max_lits = expr.rhs.lits.Count();
 
             var minimized = new List<List<Minterm>>();
             for (int i = 0; i < 3; i++)
@@ -465,7 +464,7 @@ namespace shannon_exp
         public string buildStringFromMinterms(List<Minterm> minterms, Expression expr)
         {
             string output = "";
-            int max_lits = expr.rhs.lit_hash.Count();
+            int max_lits = expr.rhs.lits.Count();
 
             foreach (Minterm minterm in minterms)
             {
@@ -494,7 +493,7 @@ namespace shannon_exp
         public string buildMinimizedExpressionStr(List<List<Minterm>> minimized, Expression expr, int control)
         {
             string output = "";
-            int max_lits = expr.rhs.lit_hash.Count();
+            int max_lits = expr.rhs.lits.Count();
 
             /* Output parts of expression that were partitioned by the control term */
             for (int j = 0; j < 2; j++)
@@ -538,11 +537,6 @@ namespace shannon_exp
 
 
 
-//            Console.Write("Expression: {0}", buildMinimizedExpressionStr(minimized, expr, control));
-        /*
-               how to group control signals for recusve signals
-         */
-
         class Mux
         {
             public Expression parent;           /* Parent expression */
@@ -573,7 +567,7 @@ namespace shannon_exp
             //============================================================================
             /* Calculate frequency of variables used */
             //============================================================================
-            var term_frequency = findVariableFrequency(minterms, expr.rhs.lit_hash.Count());
+            var term_frequency = findVariableFrequency(minterms, expr.rhs.lits.Count());
 
             /* Debug: Report information */
 
@@ -673,21 +667,26 @@ namespace shannon_exp
             Console.WriteLine("* Minimized expression:");         
             Console.WriteLine("Control term: {0}", expr.rhs.lits[control]);
             Console.Write("Expression: {0}", buildMinimizedExpressionStr(minimized, expr, control));
+            Console.WriteLine();
 
-
             //--------------------------------------------------------
             //--------------------------------------------------------
             //--------------------------------------------------------
+            // need to make sub expression based on
+            // results, with new lits 
+            // 
             // Temporary: hard-code second pass
             // Check if the minterms partitioned by the control term have more than one minterm
+
+
 
             // scan both halves of partition for an entry with more than one minterm 
             for (int i = 0; i < 2; i++)
             {
                 if (minimized[i].Count > 1)
                 {
-                    Console.WriteLine("\n***Second pass:\n");
-                    Console.WriteLine(">>" + buildStringFromMinterms(minimized[i], expr) + "<<");
+                    Console.WriteLine("\n** Second pass:\n");
+                    Console.WriteLine("Candidate for reduction: " + buildStringFromMinterms(minimized[i], expr));
                     int ncontrol_frequency = 0;
                     int ncontrol = findControlVariable(term_frequency, ref ncontrol_frequency);
                     if (ncontrol == -1)
@@ -697,9 +696,24 @@ namespace shannon_exp
                         Console.ReadKey();
                         return true;
                     }
-                    Console.WriteLine("Control term candidate is {0} with frequency {1}.", ncontrol, ncontrol_frequency);
+                    Console.WriteLine("Control term candidate is {0},({2}) with frequency {1}.", ncontrol, ncontrol_frequency, expr.rhs.lits[ncontrol]);
                     Console.WriteLine();
 
+                    //
+
+                    Console.WriteLine("* Partitioning pass:");
+                    var npartitions = partitionMinterms(minimized[i], expr, ncontrol);
+
+                    /* Display unminimized partitions */
+                    Console.WriteLine("Partitions:");
+                    for (int ii = 0; ii < 3; ii++)
+                    {
+                        Console.Write("{0}: ", ii);
+                        foreach (var x in npartitions[ii])
+                            Console.Write("{0} ", x);
+                        Console.WriteLine();
+                    }
+                    Console.WriteLine();
                 }
             }
 
