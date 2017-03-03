@@ -4,10 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-// recursive factoring
-// control term partitions expression, then ther'es additional or terms
-// for the subexpressions associated with the control terms they can be reduced
-// so each 1 eqn splits into 2, etc.
+
+
+
+
+
+
+
 
 namespace shannon_exp
 {
@@ -354,6 +357,8 @@ namespace shannon_exp
         }
 
 
+
+
         public List<List<Minterm>> minimizePartitions(List<List<Minterm>> partitions, Expression expr)
         {
             int max_lits = expr.rhs.lits.Count();
@@ -669,6 +674,7 @@ namespace shannon_exp
             Console.Write("Expression: {0}", buildMinimizedExpressionStr(minimized, expr, control));
             Console.WriteLine();
 
+#if false
             //--------------------------------------------------------
             //--------------------------------------------------------
             //--------------------------------------------------------
@@ -677,6 +683,19 @@ namespace shannon_exp
             // 
             // Temporary: hard-code second pass
             // Check if the minterms partitioned by the control term have more than one minterm
+
+            // Output from partition is
+            // Minterm list associated with negative control term
+            // Minterm list associated with positive control term
+            // Minterm list unassociated with control term 
+            // To reduce, need literal list used by each minterm list associated with control term,
+            // For example for output: 
+            // ~D(E) | D(CA | ~CB) | F
+            // CA | ~CB needs to have variables A,C,B associated with it
+            // These sub-minterms then need to be joined together in the end with all control terms taken into account
+            // Should move literal list out of expression and into a structure containing Minterms to 
+            // decouple them from the original expression
+            //
 
 
 
@@ -716,7 +735,7 @@ namespace shannon_exp
                     Console.WriteLine();
                 }
             }
-
+#endif
 
             return false;
         }

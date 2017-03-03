@@ -4,20 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-#if false
-    API
-  
-    string result;
-
- 
-    ShannonExpansion foo = new ShannonExpansion()
-    foo.expand("a + b", ref result);
-    
-    ShannonExpansion foo = new ShannonExpansion("a + b");
-    result = foo.expand();
-    
- 
-#endif
 
 /*
  * Some observations:
