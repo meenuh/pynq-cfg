@@ -4,6 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+// recursive factoring
+// control term partitions expression, then ther'es additional or terms
+// for the subexpressions associated with the control terms they can be reduced
+// so each 1 eqn splits into 2, etc.
 
 namespace shannon_exp
 {
@@ -458,7 +462,34 @@ namespace shannon_exp
         }
 
 
+        public string buildStringFromMinterms(List<Minterm> minterms, Expression expr)
+        {
+            string output = "";
+            int max_lits = expr.rhs.lit_hash.Count();
 
+            foreach (Minterm minterm in minterms)
+            {
+                bool wrote = false;
+                for (int i = 0; i < max_lits; i++)
+                {
+                    if (minterm.data[i] != 'x')
+                    {
+                        if (minterm.data[i] == '0')
+                            output += '~';
+                        output += expr.rhs.lits[i];
+                        wrote = true;
+                    }
+                }
+
+                if (wrote)
+                {
+                    wrote = false;
+                    if (minterm != minterms.Last())
+                        output += " | ";
+                }
+            }
+            return output;
+        }
 
         public string buildMinimizedExpressionStr(List<List<Minterm>> minimized, Expression expr, int control)
         {
@@ -474,33 +505,13 @@ namespace shannon_exp
                 if (minterm_list == minimized[0])
                     output += "~";
 
-                /* Output control term */
+                /* Output start of control term */
                 output += String.Format("{0}(", expr.rhs.lits[control]);
 
-                /* Output all minterms associated with the false control term */
-                foreach (Minterm minterm in minterm_list)
-                {
-                    bool wrote = false;
-                    for (int i = 0; i < max_lits; i++)
-                    {
-                        if (minterm.data[i] != 'x')
-                        {
-                            if (minterm.data[i] == '0')
-                                output += '~';
-                            output += expr.rhs.lits[i];
-                            wrote = true;
-                        }
-                    }
+                /* Output minterm */
+                output += buildStringFromMinterms(minterm_list, expr);
 
-                    if (wrote)
-                    {
-                        wrote = false;
-                        if (minterm != minterm_list.Last())
-                            output += " | ";
-                    }
-                }
-
-                /* End of control term */
+                /* Output end of control term */
                 output +=  ")";
 
                 /* Insert OR term between two partitions */
@@ -524,6 +535,22 @@ namespace shannon_exp
                 
             return output;
         }
+
+
+
+//            Console.Write("Expression: {0}", buildMinimizedExpressionStr(minimized, expr, control));
+        /*
+               how to group control signals for recusve signals
+         */
+
+        class Mux
+        {
+            public Expression parent;           /* Parent expression */
+            public Expression muxa;             /* Input A */
+            public Expression muxb;             /* Input B */
+            int control;                        /* Control term */
+            public List<Expression> remainder;  /* Additional minterms OR'd together */
+        };
 
 
 
@@ -647,6 +674,36 @@ namespace shannon_exp
             Console.WriteLine("Control term: {0}", expr.rhs.lits[control]);
             Console.Write("Expression: {0}", buildMinimizedExpressionStr(minimized, expr, control));
 
+
+            //--------------------------------------------------------
+            //--------------------------------------------------------
+            //--------------------------------------------------------
+            // Temporary: hard-code second pass
+            // Check if the minterms partitioned by the control term have more than one minterm
+
+            // scan both halves of partition for an entry with more than one minterm 
+            for (int i = 0; i < 2; i++)
+            {
+                if (minimized[i].Count > 1)
+                {
+                    Console.WriteLine("\n***Second pass:\n");
+                    Console.WriteLine(">>" + buildStringFromMinterms(minimized[i], expr) + "<<");
+                    int ncontrol_frequency = 0;
+                    int ncontrol = findControlVariable(term_frequency, ref ncontrol_frequency);
+                    if (ncontrol == -1)
+                    {
+                        /* No control term found. Expression may not be reducible via Shannon expansion */
+                        Console.WriteLine("No control term found, cannot reduce.");
+                        Console.ReadKey();
+                        return true;
+                    }
+                    Console.WriteLine("Control term candidate is {0} with frequency {1}.", ncontrol, ncontrol_frequency);
+                    Console.WriteLine();
+
+                }
+            }
+
+
             return false;
         }
 
@@ -659,5 +716,6 @@ namespace shannon_exp
             return result;
         }
     }
+
 
 } // End
