@@ -234,10 +234,10 @@ namespace shannon_exp
     {
         public List<List<Minterm>> minterms;    /* Minterms partitioned into three groups: 0, 1, X */
         public List<string> lits;               /* Variables common to all minterms */
-        int control;                            /* Index of control variable used to select partitions */
+        public int control;                            /* Index of control variable used to select partitions */
 
         /* Build a partitioned minterm inheriting a set of variables */
-        public PartitionedMinterms(List<string> lits)
+        public PartitionedMinterms(List<string> lits, int control)
         {
             /* Three partitions for 0, 1, x */
             minterms = new List<List<Minterm>>();
@@ -252,7 +252,7 @@ namespace shannon_exp
         }
 
         /* Make new partitioned minterms that inherit the variables of another */
-        public PartitionedMinterms(PartitionedMinterms rhs) : this(rhs.lits)
+        public PartitionedMinterms(PartitionedMinterms rhs) : this(rhs.lits, rhs.control)
         {
             /* Build new partitioned minterms that inherit variables of another */
         }
@@ -332,9 +332,8 @@ namespace shannon_exp
         {
             const int max_states = 2;
 
-            List<List<int>> term_frequency = new List<List<int>>();
-
             /* Frequency list has two sub-lists for true and false case */
+            List<List<int>> term_frequency = new List<List<int>>();
             for (int i = 0; i < max_states; i++)
                 term_frequency.Add(new List<int>());
 
@@ -387,7 +386,7 @@ namespace shannon_exp
         /* Split a list of minterms by their control variable into groups where the variable is 0, 1, x */
         public PartitionedMinterms buildPartitionedMinterms(List<Minterm> minterms, Expression expr, int control)
         {
-            var partitions = new PartitionedMinterms(expr.rhs.lits);
+            var partitions = new PartitionedMinterms(expr.rhs.lits, control);
 
             foreach (Minterm minterm in minterms)
             {
@@ -408,11 +407,12 @@ namespace shannon_exp
 
 
         /* Go through a group of three minterm lists (for control variable = 0, 1, x) and minimize redundant minterms */
-        public PartitionedMinterms minimizePartitionedMinterms(PartitionedMinterms partitions, Expression expr)
+        public PartitionedMinterms minimizePartitionedMinterms(PartitionedMinterms partitions)
         {
-            PartitionedMinterms minimized = new PartitionedMinterms(partitions);
+            if (partitions.control == -1)
+                throw new NotImplementedException("Error: minimizePartionedMinterms: No control term defined.\n");
 
-            int max_lits = expr.rhs.lits.Count();
+            PartitionedMinterms minimized = new PartitionedMinterms(partitions);
 
             /* Minimize partitions */
             for (int i = 0; i < 3; i++)
@@ -429,7 +429,7 @@ namespace shannon_exp
                             continue;
 
                         /* Count number of differences between parent and child, stop if more than one found */
-                        for (int index = 0; index < max_lits && diff <= 1; index++)
+                        for (int index = 0; index < minimized.lits.Count && diff <= 1; index++)
                         {
                             /* Note position where different occurred */
                             if (parent.data[index] != child.data[index])
@@ -444,13 +444,14 @@ namespace shannon_exp
                         {
                             /* Build minimized minterm */
                             Minterm derived = new Minterm(parent, diff_pos, 'x');
-                            derived.used = false;
 
                             /* If we don't already have this minterm, add it and mark parent and child as being reduced */
                             if (!minimized.minterms[i].Contains(derived))
                             {
+                                /* Flag parent and child minterms that produced reduced minterm as being used */
                                 parent.used = true;
                                 child.used = true;
+
                                 minimized.minterms[i].Add(derived);
                                 Console.WriteLine("- Reduced ({0}, {1}) -> {3} (@{2})", parent, child, diff, derived);
                             }
@@ -487,14 +488,15 @@ namespace shannon_exp
 
 
 
-
-
+        //================================================================================================================
+        // Functions for building an expression string out of minterms 
+        //================================================================================================================
 
         /* Build a human-readable string from a list of minterms */
-        public string buildStringFromMinterms(List<Minterm> minterms, Expression expr)
+        public string buildStringFromMinterms(List<Minterm> minterms, List<string> lits)
         {
             string output = "";
-            int max_lits = expr.rhs.lits.Count();
+            int max_lits = lits.Count();
 
             foreach (Minterm minterm in minterms)
             {
@@ -505,7 +507,7 @@ namespace shannon_exp
                     {
                         if (minterm.data[i] == '0')
                             output += '~';
-                        output += expr.rhs.lits[i];
+                        output += lits[i];
                         wrote = true;
                     }
                 }
@@ -524,25 +526,25 @@ namespace shannon_exp
 
 
         /* Build an expression out of a collection of minterms */
-        public string buildMinimizedExpressionStr(List<List<Minterm>> minimized, Expression expr, int control)
+        public string buildStringFromPartitionedMinterms(PartitionedMinterms minimized)
         {
             string output = "";
-            int max_lits = expr.rhs.lits.Count();
+            int max_lits = minimized.lits.Count();
 
             /* Output parts of expression that were partitioned by the control term */
             for (int j = 0; j < 2; j++)
             {
-                var minterm_list = minimized[j];   
+                var minterm_list = minimized.minterms[j];   
 
                 /* The first partition is associated with the control term being false */
-                if (minterm_list == minimized[0])
+                if (minterm_list == minimized.minterms[0])
                     output += "~";
 
                 /* Output start of control term */
-                output += String.Format("{0}(", expr.rhs.lits[control]);
+                output += String.Format("{0}(", minimized.lits[minimized.control]);
 
                 /* Output minterm */
-                output += buildStringFromMinterms(minterm_list, expr);
+                output += buildStringFromMinterms(minterm_list, minimized.lits);
 
                 /* Output end of control term */
                 output +=  ")";
@@ -553,14 +555,14 @@ namespace shannon_exp
             }
 
             /* Output remaining parts that are unaffected by the control term */
-            foreach (var minterm in minimized[2])
+            foreach (var minterm in minimized.minterms[2])
             {
                 string temp = "";
                 for(int i = 0; i < max_lits; i++)
                 {
-                    if (minterm.data[i] == '0') temp += "~" + expr.rhs.lits[i];
+                    if (minterm.data[i] == '0') temp += "~" + minimized.lits[i];
                     else
-                    if (minterm.data[i] == '1') temp +=       expr.rhs.lits[i];
+                    if (minterm.data[i] == '1') temp +=       minimized.lits[i];
                 }
                 if (!String.IsNullOrEmpty(temp))
                     output += " | " + temp;
@@ -578,14 +580,6 @@ namespace shannon_exp
         //================================================================================================================
 
 
-        class Mux
-        {
-            public Expression parent;           /* Parent expression */
-            public Expression muxa;             /* Input A */
-            public Expression muxb;             /* Input B */
-            int control;                        /* Control term */
-            public List<Expression> remainder;  /* Additional minterms OR'd together */
-        };
 
 
 
@@ -691,7 +685,7 @@ namespace shannon_exp
             //============================================================================
             Console.WriteLine("* Minimization pass:");
 
-            var minimized = minimizePartitionedMinterms(partitions, expr);
+            var minimized = minimizePartitionedMinterms(partitions);
 
             /* Display minimized partitions */
             Console.WriteLine("Minimized partitions:");
@@ -706,8 +700,8 @@ namespace shannon_exp
 
             //----------------------------------------------------------
             Console.WriteLine("* Minimized expression:");         
-            Console.WriteLine("Control term: {0}", expr.rhs.lits[control]);
-            Console.Write("Expression: {0}", buildMinimizedExpressionStr(minimized.minterms, expr, control));
+            Console.WriteLine("Control term: {0}", minimized.lits[control]);
+            Console.Write("Expression: {0}", buildStringFromPartitionedMinterms(minimized));
             Console.WriteLine();
 
 #if false
