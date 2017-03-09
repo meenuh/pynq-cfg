@@ -65,8 +65,13 @@ namespace shannon_exp
             string input = "~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c";
 
             input = "f=~a & ~b & ~c | a & ~b & ~c | a & b & ~c | a & b & c | d";
+            //
+//            input = "f = ~D & E | D & C & A | D & ~C & B | F"; // lf: maps to two cascaded 2-1 muxes
 
-            input = "f = ~D & E | D & C & A | D & ~C & B | F"; // lf: maps to two cascaded 2-1 muxes
+
+
+            input = "F = B & C & !G | !B & H & I | A & !B & !I | B & E & F & G | B & D & !F & G | X";
+      //      input = "F = C & ~G |  G & E & F | G & ~F & D | X";
 
             ShannonExpansion s = new ShannonExpansion();
             string output = "";

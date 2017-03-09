@@ -607,17 +607,33 @@ namespace shannon_exp
         }
 
 
-        public bool subShannonExpand(ref PartitionedMinterms source)
+        public bool subShannonExpand(ref PartitionedMinterms source, int pass)
         {
             // DEBUG
-            Console.WriteLine("CHECKING: {0}", buildStringFromPartitionedMinterms(source));
+            Console.WriteLine("\nSUB EXP CHECKING: {0}, DEPTH: {1}\n", buildStringFromPartitionedMinterms(source), pass);
+
+
+
+            /* Display unminimized partitions */
+            Console.WriteLine("Source partitions:");
+            for (int ii = 0; ii < 3; ii++)
+            {
+                if (source.minterms[ii].Count == 0)
+                    continue;
+                Console.Write("{0}: ", ii);
+                foreach (var x in source.minterms[ii])
+                    Console.Write("{0} ", x);
+                Console.WriteLine();
+            }
+            Console.WriteLine();
+
 
             for (int i = 0; i < 3; i++)
             {
                 /* Don't try to reduce empty partitions or partitions with one minterm */
                 if (source.minterms[i].Count <= 1)
                     continue;
-
+ 
                 /* Find control term */
                 ControlData ctrlData = new ControlData();
                 ctrlData.findVariableFrequency(source.minterms[i], source.lits.Count);
@@ -669,13 +685,12 @@ namespace shannon_exp
 
                 var child = new PartitionedMinterms(source.subPartition[i], true);
 
-                if (subShannonExpand(ref child))
+                if (subShannonExpand(ref child, pass * 3 + i))
                 {
                     source.subPartition[i] = child;
                 }
-                return true;
             }
-            return false;
+            return true;
         }
 
 
@@ -703,7 +718,10 @@ namespace shannon_exp
                 return true;
             }
             Console.WriteLine("Control term candidate is {0} with frequency {1}.", ctrlData.control, ctrlData.control_frequency);
-            Console.WriteLine();
+
+
+
+
 
 
             //============================================================================
@@ -762,6 +780,8 @@ namespace shannon_exp
             Console.WriteLine("Partitions:");
             for (int i = 0; i < 3; i++)
             {
+                if (partitions.minterms[i].Count == 0)
+                    continue;
                 Console.Write("{0}: ", i);
                 foreach (var x in partitions.minterms[i])
                     Console.Write("{0} ", x);
@@ -777,6 +797,8 @@ namespace shannon_exp
             Console.WriteLine("\n* Minimized partitions:");
             for (int i = 0; i < 3; i++)
             {
+                if (minimized.minterms[i].Count == 0)
+                    continue;
                 Console.Write("{0}: ", i);
                 foreach (var x in minimized.minterms[i])
                     Console.Write("{0} ", x);
@@ -813,9 +835,68 @@ namespace shannon_exp
 #endif
 
             // Recursively expand partitions under parent
-            subShannonExpand(ref minimized);
+            Console.WriteLine("*** Starting recursive partitioning:");
+            subShannonExpand(ref minimized, 2);
 
+
+            //---------------------------------------
+            //---------------------------------------
+            //---------------------------------------
+
+
+            print(minimized, 0);
             return false;
+        }
+
+
+        //=========
+        public void print(PartitionedMinterms node, int depth)
+        {
+            if (node == null)
+                return;
+
+           // Console.Write("NODE.CTL = {0}", node.control);
+
+            if (node.control == -1)
+            {
+                /* No partitions */
+                throw new NotImplementedException("no ctrl");
+            }
+            else
+            {
+                /* Partitions */
+                Console.Write("~{0}[", node.lits[node.control]);
+
+                if (node.subPartition[0] == null)
+                    Console.Write(buildStringFromMinterms(node.minterms[0], node.lits));
+                else
+                    print(node.subPartition[0], depth + 1);
+
+                Console.Write("] | {0}[", node.lits[node.control]);
+
+                if (node.subPartition[1] == null)
+                    Console.Write(buildStringFromMinterms(node.minterms[1], node.lits));
+                else
+                    print(node.subPartition[1], depth + 1);
+
+                Console.Write("]");
+            }
+
+
+
+            if (node.subPartition[2] == null)
+            {
+                if (node.minterms[2].Count != 0)
+                {
+                    Console.Write(" | ");
+                    Console.Write(buildStringFromMinterms(node.minterms[2], node.lits));
+                }
+            }
+            else
+            {
+                print(node.subPartition[2], depth + 1);
+            }
+
         }
 
 
