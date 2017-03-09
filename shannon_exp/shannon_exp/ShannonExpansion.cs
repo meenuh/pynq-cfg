@@ -239,6 +239,7 @@ namespace shannon_exp
         public List<List<Minterm>> minterms;    /* Minterms partitioned into three groups: 0, 1, X */
         public List<string> lits;               /* Variables common to all minterms */
         public int control;                            /* Index of control variable used to select partitions */
+        public List<PartitionedMinterms> subPartition;
 
         /* Build a partitioned minterm inheriting a set of variables */
         public PartitionedMinterms(List<string> lits, int control)
@@ -248,6 +249,11 @@ namespace shannon_exp
             for (int i = 0; i < 3; i++ )
                 minterms.Add(new List<Minterm>());
 
+            /* Indicate each sub-partition is not broken down further */
+            subPartition = new List<PartitionedMinterms>();
+            for (int i = 0; i < 3; i++)
+                subPartition.Add(null);
+
             /* Variables */
             this.lits = new List<string>(lits);
 
@@ -256,8 +262,19 @@ namespace shannon_exp
         }
 
         /* Make new partitioned minterms that inherit the variables and control term index of another */
-        public PartitionedMinterms(PartitionedMinterms rhs) : this(rhs.lits, rhs.control)
+        public PartitionedMinterms(PartitionedMinterms rhs, bool copyMinterms = false) : this(rhs.lits, rhs.control)
         {
+            /* Copy the minterm partitions */
+            if (copyMinterms == true)
+            {
+                for (int i = 0; i < 3; i++ )
+                {
+                    foreach (var minterm in rhs.minterms[i])
+                    {
+                        this.minterms[i].Add(minterm);
+                    }
+                }
+            }
         }
     }
 
@@ -590,6 +607,77 @@ namespace shannon_exp
         }
 
 
+        public bool subShannonExpand(ref PartitionedMinterms source)
+        {
+            // DEBUG
+            Console.WriteLine("CHECKING: {0}", buildStringFromPartitionedMinterms(source));
+
+            for (int i = 0; i < 3; i++)
+            {
+                /* Don't try to reduce empty partitions or partitions with one minterm */
+                if (source.minterms[i].Count <= 1)
+                    continue;
+
+                /* Find control term */
+                ControlData ctrlData = new ControlData();
+                ctrlData.findVariableFrequency(source.minterms[i], source.lits.Count);
+                if (!ctrlData.findControlVariable())
+                {
+                    Console.WriteLine("No control term found.");
+                    continue;
+                }
+                Console.WriteLine("Partition {0} uses control term {1}", i, source.lits[ctrlData.control]);
+
+                /* Partition minterms based on control term */
+                var partitions = buildPartitionedMinterms(source.minterms[i], source.lits, ctrlData.control);
+
+                /* Display unminimized partitions */
+                Console.WriteLine("Partitions:");
+                for (int ii = 0; ii < 3; ii++)
+                {
+                    if (partitions.minterms[ii].Count == 0)
+                        continue;
+                    Console.Write("{0}: ", ii);
+                    foreach (var x in partitions.minterms[ii])
+                        Console.Write("{0} ", x);
+                    Console.WriteLine();
+                }
+                Console.WriteLine();
+
+                /* Minimize partitions to remove redundant minterms*/
+                Console.WriteLine("* Minimization pass:");
+                source.subPartition[i] = minimizePartitionedMinterms(partitions);
+
+                /* Display minimized partitions */
+                Console.WriteLine("Minimized partitions:");
+                for (int ii = 0; ii < 3; ii++)
+                {
+                    if (source.subPartition[i].minterms[ii].Count == 0)
+                        continue;
+                    Console.Write("{0}: ", ii);
+                    foreach (var x in source.subPartition[i].minterms[ii])
+                        Console.Write("{0} ", x);
+                    Console.WriteLine();
+                }
+                Console.WriteLine();
+
+                /* Print final minimized expression */
+                Console.WriteLine("* Minimized expression:");
+                Console.WriteLine("Control term: {0}", source.subPartition[i].lits[source.subPartition[i].control]);
+                Console.Write("Expression: {0}", buildStringFromPartitionedMinterms(source.subPartition[i]));
+                Console.WriteLine();
+
+                var child = new PartitionedMinterms(source.subPartition[i], true);
+
+                if (subShannonExpand(ref child))
+                {
+                    source.subPartition[i] = child;
+                }
+                return true;
+            }
+            return false;
+        }
+
 
 
         public bool expand(string input, ref string result)
@@ -704,18 +792,8 @@ namespace shannon_exp
 
             /*===============================================================================================*/
             /*===============================================================================================*/
-            /*===============================================================================================*/
-#if true
-            // Second pass
-
-            Console.WriteLine("*************************** Second pass:\n");
-
-            for (int i = 0; i < 3; i++)
-            {
-                /* Don't try to reduce empty partitions or partitions with one minterm */
-                if (minimized.minterms[i].Count <= 1)
-                    continue;
-
+#if false
+                /* DEBUG */
                 /* Determine variable indices used by this partition */                
                 HashSet<int> used = new HashSet<int>();
                 foreach (Minterm minterm in minimized.minterms[i])
@@ -732,124 +810,10 @@ namespace shannon_exp
                 foreach (var index in used)
                     msg += String.Format("{0}, ", minimized.lits[index]);
                 Console.WriteLine(msg);
-
-
-                ControlData cd = new ControlData();
-                cd.findVariableFrequency(minimized.minterms[i], minimized.lits.Count);
-                if (!cd.findControlVariable())
-                {
-                    Console.WriteLine("No control term found.");
-                    continue;
-                }
-
-                Console.WriteLine("Partition {0} uses control term {1}", i, minimized.lits[cd.control]);
-
-
-                //                var partitions2 = buildPartitionedMinterms(minterms, expr, ctrlData.control);
-
-                 var partitions2 = buildPartitionedMinterms(minimized.minterms[i], minimized.lits, cd.control);
-
-                /* Display unminimized partitions */
-                Console.WriteLine("Partitions:");
-                for (int ii = 0; ii < 3; ii++)
-                {
-                    if (partitions2.minterms[ii].Count == 0)
-                        continue;
-                    Console.Write("{0}: ", ii);
-                    foreach (var x in partitions2.minterms[ii])
-                        Console.Write("{0} ", x);
-                    Console.WriteLine();
-                }
-                Console.WriteLine();
-
-                /* Minimize partitions to remove redundant minterms*/
-                Console.WriteLine("* Minimization pass:");
-                var minimized2 = minimizePartitionedMinterms(partitions2);
-
-                /* Display minimized partitions */
-                Console.WriteLine("Minimized partitions:");
-                for (int ii = 0; ii < 3; ii++)
-                {
-                    if (minimized2.minterms[ii].Count == 0)
-                        continue;
-                    Console.Write("{0}: ", ii);
-                    foreach (var x in minimized2.minterms[ii])
-                        Console.Write("{0} ", x);
-                    Console.WriteLine();
-                }
-                Console.WriteLine();
-
-                /* Print final minimized expression */
-                Console.WriteLine("* Minimized expression:");
-                Console.WriteLine("Control term: {0}", minimized2.lits[cd.control]);
-                Console.Write("Expression: {0}", buildStringFromPartitionedMinterms(minimized2));
-                Console.WriteLine();
-
-            }
-             
 #endif
-#if false
-            //--------------------------------------------------------
-            //--------------------------------------------------------
-            //--------------------------------------------------------
-            // need to make sub expression based on
-            // results, with new lits 
-            // 
-            // Temporary: hard-code second pass
-            // Check if the minterms partitioned by the control term have more than one minterm
 
-            // Output from partition is
-            // Minterm list associated with negative control term
-            // Minterm list associated with positive control term
-            // Minterm list unassociated with control term 
-            // To reduce, need literal list used by each minterm list associated with control term,
-            // For example for output: 
-            // ~D(E) | D(CA | ~CB) | F
-            // CA | ~CB needs to have variables A,C,B associated with it
-            // These sub-minterms then need to be joined together in the end with all control terms taken into account
-            // Should move literal list out of expression and into a structure containing Minterms to 
-            // decouple them from the original expression
-            //
-
-
-
-            // scan both halves of partition for an entry with more than one minterm 
-            for (int i = 0; i < 2; i++)
-            {
-                if (minimized[i].Count > 1)
-                {
-                    Console.WriteLine("\n** Second pass:\n");
-                    Console.WriteLine("Candidate for reduction: " + buildStringFromMinterms(minimized[i], expr));
-                    int ncontrol_frequency = 0;
-                    int ncontrol = findControlVariable(term_frequency, ref ncontrol_frequency);
-                    if (ncontrol == -1)
-                    {
-                        /* No control term found. Expression may not be reducible via Shannon expansion */
-                        Console.WriteLine("No control term found, cannot reduce.");
-                        Console.ReadKey();
-                        return true;
-                    }
-                    Console.WriteLine("Control term candidate is {0},({2}) with frequency {1}.", ncontrol, ncontrol_frequency, expr.rhs.lits[ncontrol]);
-                    Console.WriteLine();
-
-                    //
-
-                    Console.WriteLine("* Partitioning pass:");
-                    var npartitions = partitionMinterms(minimized[i], expr, ncontrol);
-
-                    /* Display unminimized partitions */
-                    Console.WriteLine("Partitions:");
-                    for (int ii = 0; ii < 3; ii++)
-                    {
-                        Console.Write("{0}: ", ii);
-                        foreach (var x in npartitions[ii])
-                            Console.Write("{0} ", x);
-                        Console.WriteLine();
-                    }
-                    Console.WriteLine();
-                }
-            }
-#endif
+            // Recursively expand partitions under parent
+            subShannonExpand(ref minimized);
 
             return false;
         }
