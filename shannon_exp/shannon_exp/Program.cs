@@ -70,8 +70,8 @@ namespace shannon_exp
 
 
 
-            input = "F = B & C & !G | !B & H & I | A & !B & !I | B & E & F & G | B & D & !F & G | X";
-      //      input = "F = C & ~G |  G & E & F | G & ~F & D | X";
+            input = "F = B & C & !G | !B & H & I | A & !B & !I | B & E & F & G | B & D & !F & G | X & Y & !Z";
+      //      input = "F = C & ~G |  G & E & F | G & ~F & D";
 
             ShannonExpansion s = new ShannonExpansion();
             string output = "";

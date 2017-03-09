@@ -466,15 +466,28 @@ namespace shannon_exp
             foreach (Minterm minterm in minterms)
             {
                 bool wrote = false;
+                bool outf = false;
+ 
                 for (int i = 0; i < max_lits; i++)
                 {
+
                     if (minterm.data[i] != 'x')
                     {
+                        /* Did we print a term last time? */
+                        if (outf == true)
+                        {
+                            outf = false;
+                            output += "&";
+                        }
+
                         if (minterm.data[i] == '0')
                             output += '~';
+
                         output += lits[i];
                         wrote = true;
+                        outf = true;
                     }
+
                 }
 
                 if (wrote)
