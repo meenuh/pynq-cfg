@@ -856,13 +856,18 @@ namespace shannon_exp
             //---------------------------------------
             //---------------------------------------
 
-
+            Console.WriteLine("Original expression:");
+            Console.WriteLine("- {0}", input);
+            Console.WriteLine("Fully expanded expression:");
+            Console.Write("- {0} = ", expr.lhs.ToString());
             print(minimized, 0);
             return false;
         }
 
 
         //=========
+
+
         public void print(PartitionedMinterms node, int depth)
         {
             if (node == null)
