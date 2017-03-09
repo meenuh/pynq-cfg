@@ -80,6 +80,10 @@ namespace shannon_exp
             return String.Join("", output.ToArray());
         }
 
+        public Expression(string input)
+        {
+            parseString(input);
+        }
 
 
         /* Parse a string into tokens */
@@ -248,13 +252,12 @@ namespace shannon_exp
             this.lits = new List<string>(lits);
 
             /* Control is initially undetermined */
-            control = -1;
+            this.control = control;
         }
 
-        /* Make new partitioned minterms that inherit the variables of another */
+        /* Make new partitioned minterms that inherit the variables and control term index of another */
         public PartitionedMinterms(PartitionedMinterms rhs) : this(rhs.lits, rhs.control)
         {
-            /* Build new partitioned minterms that inherit variables of another */
         }
     }
 
@@ -327,66 +330,12 @@ namespace shannon_exp
         }
 
 
-        /* Calculate frequency that each variable appears in a true or complemented form in a list of minterms */
-        public List<List<int>> findVariableFrequency(List<Minterm> minterms, int max_variables)
-        {
-            const int max_states = 2;
-
-            /* Frequency list has two sub-lists for true and false case */
-            List<List<int>> term_frequency = new List<List<int>>();
-            for (int i = 0; i < max_states; i++)
-                term_frequency.Add(new List<int>());
-
-
-            /* Make empty frequency list */
-            for (int i = 0; i < max_states; i++)
-            {
-                term_frequency[i] = new List<int>();
-                for (int j = 0; j < max_variables; j++)
-                    term_frequency[i].Add(0);
-            }
-
-            /* Calculate term frequency */
-            foreach (Minterm minterm in minterms)
-            {
-                for (int i = 0; i < max_variables; i++)
-                {
-                    if (minterm.data[i] == '0') term_frequency[0][i]++;
-                    else 
-                    if (minterm.data[i] == '1') term_frequency[1][i]++;
-                }
-            }
-
-            return term_frequency;
-        }
-
-        /* Determine the control variable based on the variable's frequency */
-        public int findControlVariable(List<List<int>> term_frequency, ref int control_frequency)
-        {
-            /* Find control term.
-             * This is accomplished by finding the minimum frequency for each variable,
-             * and then locating the largest overall frequency across all variables.
-             */
-            int control = -1;
-            control_frequency = 0;
-            for (int j = 0; j < term_frequency[0].Count(); j++)
-            {
-                int currentMin = Math.Min(term_frequency[0][j], term_frequency[1][j]);
-                if (currentMin > control_frequency)
-                {
-                    control = j;
-                    control_frequency = currentMin;
-                }
-            }
-            return control;
-        }
-
 
 
         /* Split a list of minterms by their control variable into groups where the variable is 0, 1, x */
-        public PartitionedMinterms buildPartitionedMinterms(List<Minterm> minterms, Expression expr, int control)
+        public PartitionedMinterms buildPartitionedMinterms(List<Minterm> minterms, List<string> lits, int control)
         {
-            var partitions = new PartitionedMinterms(expr.rhs.lits, control);
+            var partitions = new PartitionedMinterms(lits, control);
 
             foreach (Minterm minterm in minterms)
             {
@@ -468,18 +417,17 @@ namespace shannon_exp
                     } /* foreach child */
                 } /* foreach parent */
 
-                Console.Write("Could not minimize: ");
-                foreach (Minterm remaining in partitions.minterms[i])
-                {
-                    Console.Write("{0} ({1}) ", remaining, remaining.used);
-                }
-                Console.WriteLine();
+                
+
 
                 /* Add any minterms we couldn't minimize to the output */
                 foreach (Minterm remaining in partitions.minterms[i])
                 {
                     if (remaining.used == false && !minimized.minterms[i].Contains(remaining))
+                    {
+                        Console.WriteLine("- Could not minimize: {0} ({1}), copying to output list.", remaining, remaining.used);
                         minimized.minterms[i].Add(remaining);
+                    }
                 }
             }
 
@@ -531,6 +479,7 @@ namespace shannon_exp
             string output = "";
             int max_lits = minimized.lits.Count();
 
+
             /* Output parts of expression that were partitioned by the control term */
             for (int j = 0; j < 2; j++)
             {
@@ -580,6 +529,65 @@ namespace shannon_exp
         //================================================================================================================
 
 
+        class ControlData
+        {
+            public List<List<int>> term_frequency;
+            public int control_frequency;
+            public int control;
+
+            /* Calculate frequency that each variable appears in a true or complemented form in a list of minterms */
+            public void findVariableFrequency(List<Minterm> minterms, int max_variables)
+            {
+                const int max_states = 2;
+
+                /* Frequency list has two sub-lists for true and false case */
+                term_frequency = new List<List<int>>();
+                for (int i = 0; i < max_states; i++)
+                    term_frequency.Add(new List<int>());
+
+
+                /* Make empty frequency list */
+                for (int i = 0; i < max_states; i++)
+                {
+                    term_frequency[i] = new List<int>();
+                    for (int j = 0; j < max_variables; j++)
+                        term_frequency[i].Add(0);
+                }
+
+                /* Calculate term frequency */
+                foreach (Minterm minterm in minterms)
+                {
+                    for (int i = 0; i < max_variables; i++)
+                    {
+                        if (minterm.data[i] == '0') term_frequency[0][i]++;
+                        else
+                            if (minterm.data[i] == '1') term_frequency[1][i]++;
+                    }
+                }
+            }
+
+            /* Determine the control variable based on the variable's frequency */
+            public bool findControlVariable(/*List<List<int>> term_frequency, ref int control_frequency*/)
+            {
+                /* Find control term.
+                 * This is accomplished by finding the minimum frequency for each variable,
+                 * and then locating the largest overall frequency across all variables.
+                 */
+                control = -1;
+                control_frequency = 0;
+                for (int j = 0; j < term_frequency[0].Count(); j++)
+                {
+                    int currentMin = Math.Min(term_frequency[0][j], term_frequency[1][j]);
+                    if (currentMin > control_frequency)
+                    {
+                        control = j;
+                        control_frequency = currentMin;
+                    }
+                }
+
+                return (control != -1);
+            }
+        }
 
 
 
@@ -587,23 +595,31 @@ namespace shannon_exp
         public bool expand(string input, ref string result)
         {
             result = null;
-            Expression expr = new Expression();
 
-            //============================================================================
             /* Parse string into expression */
-            //============================================================================
-            expr.parseString(input);
+            Expression expr = new Expression(input);
 
-            //============================================================================
             /* Build minterm list from expression */
-            //============================================================================
             var minterms = makeMintermsFromExpression(expr);
             
-            //============================================================================
             /* Calculate frequency of variables used */
-            //============================================================================
-            var term_frequency = findVariableFrequency(minterms, expr.rhs.lits.Count());
+            ControlData ctrlData = new ControlData();
+            ctrlData.findVariableFrequency(minterms, expr.rhs.lits.Count());
 
+            /* Locate control term */
+            if(!ctrlData.findControlVariable())
+            {
+                /* No control term found. Expression may not be reducible via Shannon expansion */
+                Console.WriteLine("No control term found, cannot reduce.");
+                Console.ReadKey();
+                return true;
+            }
+            Console.WriteLine("Control term candidate is {0} with frequency {1}.", ctrlData.control, ctrlData.control_frequency);
+            Console.WriteLine();
+
+
+            //============================================================================
+            //============================================================================
             /* Debug: Report information */
 
             /* Print expression */
@@ -640,34 +656,19 @@ namespace shannon_exp
             Console.WriteLine();
 
             /* Print frequency of terms in minterms */
-            for (int i = 0; i < term_frequency.Count; i++)
+            for (int i = 0; i < ctrlData.term_frequency.Count; i++)
             {
                 Console.Write("Term frequency {0}: ", i);
-                foreach (int freq in term_frequency[i])
+                foreach (int freq in ctrlData.term_frequency[i])
                     Console.Write("{0} ", freq);
                 Console.WriteLine();
             }
+            //============================================================================
+            //============================================================================
 
-            //============================================================================
-            /* Locate control term */
-            //============================================================================
-            int control_frequency = 0;
-            int control = findControlVariable(term_frequency, ref control_frequency);
-            if (control == -1)
-            {
-                /* No control term found. Expression may not be reducible via Shannon expansion */
-                Console.WriteLine("No control term found, cannot reduce.");
-                Console.ReadKey();
-                return true;
-            }
-            Console.WriteLine("Control term candidate is {0} with frequency {1}.", control, control_frequency);
-            Console.WriteLine();
-
-            //============================================================================
             /* Partition minterms by control signal */
-            //============================================================================
             Console.WriteLine("* Partitioning pass:");
-            var partitions = buildPartitionedMinterms(minterms, expr, control);
+            var partitions = buildPartitionedMinterms(minterms, expr.rhs.lits, ctrlData.control);
                
             /* Display unminimized partitions */
             Console.WriteLine("Partitions:");
@@ -680,13 +681,10 @@ namespace shannon_exp
             }
             Console.WriteLine();
 
-            //============================================================================
             /* Minimize partitions to remove redundant minterms*/
-            //============================================================================
             Console.WriteLine("* Minimization pass:");
-
             var minimized = minimizePartitionedMinterms(partitions);
-
+ 
             /* Display minimized partitions */
             Console.WriteLine("Minimized partitions:");
             for (int i = 0; i < 3; i++)
@@ -698,12 +696,98 @@ namespace shannon_exp
             }
             Console.WriteLine();
 
-            //----------------------------------------------------------
+            /* Print final minimized expression */
             Console.WriteLine("* Minimized expression:");         
-            Console.WriteLine("Control term: {0}", minimized.lits[control]);
+            Console.WriteLine("Control term: {0}", minimized.lits[minimized.control]);        
             Console.Write("Expression: {0}", buildStringFromPartitionedMinterms(minimized));
             Console.WriteLine();
 
+            /*===============================================================================================*/
+            /*===============================================================================================*/
+            /*===============================================================================================*/
+#if false
+            // Second pass
+
+            Console.WriteLine("*************************** Second pass:\n");
+
+            for (int i = 0; i < 3; i++)
+            {
+                /* Don't try to reduce empty partitions or partitions with one minterm */
+                if (minimized.minterms[i].Count <= 1)
+                    continue;
+
+                /* Determine variable indices used by this partition */                
+                HashSet<int> used = new HashSet<int>();
+                foreach (Minterm minterm in minimized.minterms[i])
+                {
+                    /* Scan minterm string to find true or complemented variables (0 or 1, not x)  */
+                    for (int j = 0; j < minterm.data.Count; j++)
+                        if (minterm.data[j] != 'x')
+                            used.Add(j);
+                }
+
+                /* Report variables used by the minterms in this partition */
+                string msg = "";
+                msg += String.Format("* Partition #{0} minterms use variables: ", i);
+                foreach (var index in used)
+                    msg += String.Format("{0}, ", minimized.lits[index]);
+                Console.WriteLine(msg);
+
+
+                ControlData cd = new ControlData();
+                cd.findVariableFrequency(minimized.minterms[i], minimized.lits.Count);
+                if (!cd.findControlVariable())
+                {
+                    Console.WriteLine("No control term found.");
+                    continue;
+                }
+
+                Console.WriteLine("Partition {0} uses control term {1}", i, minimized.lits[cd.control]);
+
+
+                //                var partitions2 = buildPartitionedMinterms(minterms, expr, ctrlData.control);
+
+                 var partitions2 = buildPartitionedMinterms(minimized.minterms[i], minimized.lits, ctrlData.control);
+
+                /* Display unminimized partitions */
+                Console.WriteLine("Partitions:");
+                for (int ii = 0; ii < 3; ii++)
+                {
+                    if (partitions2.minterms[ii].Count == 0)
+                        continue;
+                    Console.Write("{0}: ", ii);
+                    foreach (var x in partitions2.minterms[ii])
+                        Console.Write("{0} ", x);
+                    Console.WriteLine();
+                }
+                Console.WriteLine();
+
+                /* Minimize partitions to remove redundant minterms*/
+                Console.WriteLine("* Minimization pass:");
+                var minimized2 = minimizePartitionedMinterms(partitions2);
+
+                /* Display minimized partitions */
+                Console.WriteLine("Minimized partitions:");
+                for (int ii = 0; ii < 3; ii++)
+                {
+                    if (minimized2.minterms[ii].Count == 0)
+                        continue;
+                    Console.Write("{0}: ", ii);
+                    foreach (var x in minimized2.minterms[ii])
+                        Console.Write("{0} ", x);
+                    Console.WriteLine();
+                }
+                Console.WriteLine();
+
+                /* Print final minimized expression */
+                Console.WriteLine("* Minimized expression:");
+                Console.WriteLine("Control term: {0}", minimized2.lits[ctrlData.control]);
+                Console.Write("Expression: {0}", buildStringFromPartitionedMinterms(minimized2));
+                Console.WriteLine();
+
+            }
+             
+#endif
 #if false
             //--------------------------------------------------------
             //--------------------------------------------------------
