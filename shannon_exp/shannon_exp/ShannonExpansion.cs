@@ -686,7 +686,7 @@ namespace shannon_exp
             var minimized = minimizePartitionedMinterms(partitions);
  
             /* Display minimized partitions */
-            Console.WriteLine("Minimized partitions:");
+            Console.WriteLine("\n* Minimized partitions:");
             for (int i = 0; i < 3; i++)
             {
                 Console.Write("{0}: ", i);
@@ -705,7 +705,7 @@ namespace shannon_exp
             /*===============================================================================================*/
             /*===============================================================================================*/
             /*===============================================================================================*/
-#if false
+#if true
             // Second pass
 
             Console.WriteLine("*************************** Second pass:\n");
@@ -747,7 +747,7 @@ namespace shannon_exp
 
                 //                var partitions2 = buildPartitionedMinterms(minterms, expr, ctrlData.control);
 
-                 var partitions2 = buildPartitionedMinterms(minimized.minterms[i], minimized.lits, ctrlData.control);
+                 var partitions2 = buildPartitionedMinterms(minimized.minterms[i], minimized.lits, cd.control);
 
                 /* Display unminimized partitions */
                 Console.WriteLine("Partitions:");
@@ -781,7 +781,7 @@ namespace shannon_exp
 
                 /* Print final minimized expression */
                 Console.WriteLine("* Minimized expression:");
-                Console.WriteLine("Control term: {0}", minimized2.lits[ctrlData.control]);
+                Console.WriteLine("Control term: {0}", minimized2.lits[cd.control]);
                 Console.Write("Expression: {0}", buildStringFromPartitionedMinterms(minimized2));
                 Console.WriteLine();
 
