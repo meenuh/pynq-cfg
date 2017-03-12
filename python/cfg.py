@@ -37,11 +37,12 @@ class SubExpression:
         return temp
 
 
-class Expression():
-    def __init__(self):
+class Expression:
+    def __init__(self, input_expr):
         self.lhs = SubExpression([])
         self.rhs = SubExpression([])
         self.expression = ""
+        self.parse_string(input_expr)
         return
 
     def sanitize_input(self, expression):
@@ -108,7 +109,8 @@ class ShannonExpansion:
         self.input_expr = input_expr
         return
 
-    def make_minterms_from_expression(self, expression):
+    @staticmethod
+    def make_minterms_from_expression(expression):
         invert = False
         minterm = Minterm()
         minterms = []
@@ -173,6 +175,15 @@ class ControlData:
                 control = j
                 self.control_frequency = currentMin
         return control != -1
+
+    def expand(self, input_expr, result):
+        expr = Expression(input_expr)
+        minterms = ShannonExpansion.make_minterms_from_expression(expr)
+
+        ctrlData = ControlData()
+        ctrlData.find_variable_frequency(minterms, len(expr.rhs.lits))
+
+        return
 
 
 class Cfg:
